@@ -208,6 +208,106 @@ This single-sheet flow was chosen over a Letterboxd-style multi-screen step-by-s
 
 ---
 
+## Visual Design System
+
+This section defines the concrete visual language for Phase 1. The goal is a **"Card Feed"** aesthetic — a medium poster/banner image with an info card below it — that evokes iOS 26's **"Liquid Glass"** translucent materials. This is a **React Native + Expo** app emulating Apple's design language (see "Architecture & Stack"); it is **not** a native Swift app, so every Apple-ish behavior below is achieved with RN primitives and Expo modules (`expo-blur`, `expo-symbols`, `expo-haptics`), not UIKit/SwiftUI.
+
+All values below are Phase-1 targets for the **iOS** platform only. They are concrete enough to implement directly, but exact pixel-tuning during implementation is expected and fine.
+
+> **Personalization scope (explicit interpretation — please correct if wrong):** Earlier in brainstorming, when asked to commit to ONE fixed visual style (poster-grid wall vs. editorial list vs. card feed), the answer was "the user can select what they want" rather than hard-picking one. For Phase 1 this is interpreted **narrowly and YAGNI-style** as standard Apple-native personalization: **Light / Dark / Auto** appearance mode (follows the system by default, manual override in Profile → Settings) and an optional **accent color** choice (like Reminders/Notes/Calendar let you pick a tint). It is **not** interpreted as building three swappable app-wide layout paradigms (grid-wall / editorial / card-feed as runtime themes) — a full theming engine is scope creep for an MVP. The fixed app-wide layout is the **Card Feed** style already decided above. If this reading is wrong, flag it before implementation.
+
+### Typography
+
+The type system uses the **system font (San Francisco on iOS)**, obtained through React Native's default OS font mapping (`System` / the platform default family) — no bundled custom font in Phase 1. Weights map to the standard SF weights.
+
+| Role | Approx. size (pt) | Weight | Usage |
+| --- | --- | --- | --- |
+| Large Title | 34 | Bold | Collapsible screen headers (Home, Library) |
+| Title | 28 | Bold | Movie detail title, sheet titles |
+| Headline | 17 | Semibold | Row section headers, emphasized labels |
+| Body | 17 | Regular | Synopsis, review text, primary content |
+| Subheadline | 15 | Regular | Card meta line (year · genre · rating), secondary content |
+| Caption | 12 | Regular | Timestamps, badges, tertiary metadata |
+
+- **Dynamic Type:** text respects the user's OS text-size setting. Use RN's `allowFontScaling` (default-on) and size text with the scalable font metrics rather than fixed line heights that clip. Layouts (cards, rows, sheet content) must reflow, not truncate, at larger accessibility text sizes. This ties directly into **Accessibility** below.
+
+### Color System & Appearance Modes
+
+Colors are defined as **semantic tokens**, never as hardcoded hex values sprinkled through components. Each token resolves to a different concrete value in light vs. dark mode; components reference the token, so appearance switching is automatic.
+
+| Token | Purpose | Light (approx.) | Dark (approx.) |
+| --- | --- | --- | --- |
+| `background` | Primary screen background | near-white | near-black |
+| `secondaryBackground` | Cards, grouped surfaces, sheet body | light gray | elevated dark gray |
+| `label` | Primary text | near-black | near-white |
+| `secondaryLabel` | Meta lines, captions | mid gray | dim gray |
+| `accent` / `tint` | Interactive elements, active tab, selected star | user-chosen accent | user-chosen accent |
+| `separator` | Hairline dividers, list separators | hairline gray | hairline gray (dark) |
+
+- **Light / Dark / Auto:** all three are fully supported. **Auto** (follow system) is the default; a manual override lives in **Profile → Settings**. Read the active scheme via RN `useColorScheme()` plus the user's override preference, resolving tokens accordingly.
+- **Accent color personalization:** the user may pick an accent/tint color (a small fixed palette, Apple-style), stored in local settings and applied to the `accent`/`tint` token app-wide. This is the personalization described in the callout above and lives in **Profile → Settings** alongside the appearance-mode control. Persist the choice in the local settings store (no accounts — see "Architecture & Stack").
+
+### Materials ("Liquid Glass")
+
+Translucent, blurred materials are the signature of the look and are implemented with **`expo-blur`** (`BlurView`) layered over content, with `tint` following the active appearance mode.
+
+- **Where translucency IS used:** the **bottom tab bar**, the **quick-log bottom sheet** background, and the **navigation bar / large-title header** background. These are chrome surfaces that sit over scrolling content, so the blur reads as depth and looks intentionally Apple-like.
+- **Where translucency is NOT used:** **dense list content** — Library compact rows, search-result rows, and the bodies of cards — render on the **opaque** `secondaryBackground` token. Blurring behind dense, fast-scrolling content hurts both **readability** and **performance** (many stacked `BlurView`s are expensive), so those surfaces stay solid.
+- **Layering & elevation:** depth comes from **subtle shadows and hairline (`separator`-colored) borders**, not heavy drop-shadows. Cards use a soft, low-opacity shadow (small blur radius, minimal offset) to lift them a hair off the background; adjacent surfaces are delineated with 1px hairline borders. Avoid pronounced, dark Material-style elevation shadows — they read as Android, not iOS.
+
+### Iconography
+
+- Icons use **`expo-symbols`** (SF Symbols on iOS) for both **tab bar icons** and **inline UI icons** (heart/like, bookmark/watchlist, stars, chevrons, "see all" arrows).
+- Icon **weight and scale** are matched to the adjacent type — e.g. an inline icon next to Headline/Body text uses a comparable optical weight so glyph and label sit as a unit.
+- **Fallback note:** SF Symbols are **iOS-only**. This is consistent with Phase 1's **iOS-only** target (see "Architecture & Stack"), so no cross-platform symbol fallback is built in Phase 1; should Android enter scope in a later phase, a symbol-mapping fallback would be added then.
+
+### Spacing & Shape
+
+- **Spacing grid:** an **8pt grid**. Standard steps are 4 / 8 / 16 / 24 / 32 pt (4pt used only for tight intra-component gaps). Screen gutters and inter-card spacing default to 16pt.
+- **Corner-radius scale:**
+
+| Token | Radius (pt) | Applied to |
+| --- | --- | --- |
+| Small | 8 | Buttons, genre tiles, small controls |
+| Medium | 12 | Card Feed items, poster cells |
+| Large | 20 | Bottom sheet top corners, large hero surfaces |
+
+- **Continuous corners:** larger surfaces (cards, sheets) use **continuous ("squircle"-style) corners** rather than simple circular arcs, matching iOS. In RN this is `borderCurve: 'continuous'` on the relevant surfaces.
+
+### Navigation Patterns
+
+- **Collapsing large title:** Home and Library use a **large-title header that collapses to a compact inline title on scroll**, the native iOS pattern. Achieved via the navigation library's large-title header option with a collapse-on-scroll behavior; the header background is a translucent material (see "Materials").
+- **Native sheet for quick-log:** the quick-log flow uses **native sheet presentation with a grabber handle**, presented with **detents** (e.g. a **medium** detent that the user can drag up to **large**), not a custom full-screen modal. This matches the single-sheet quick-log decision in "Logging a watch."
+- **Swipe-back:** the standard iOS **edge swipe-back gesture** is preserved on all pushed screens (e.g. movie detail), using the default native stack behavior.
+
+### Component Library
+
+The screens already spec'd imply this small reusable component set (named here; full props/API belong in the implementation plan, not this spec):
+
+- **Card Feed item** — poster/banner image with an info card below it (title + meta line); the primary Home/detail content unit.
+- **Poster grid cell** — a poster tile for the Library grid view and Search results.
+- **Compact library row** — a thumbnail + title + meta single-line row for the Library list view (the list half of the grid/list toggle).
+- **Genre tile** — a colorful, tappable category tile for the Search empty-state grid.
+- **Star rating control** — 0.5–5.0 rating in **0.5 increments**, tappable and draggable, used in the quick-log sheet and on the detail page.
+- **Row header** — a section title with an optional **"see all"** affordance, used above each horizontal Home row.
+- **Tab bar item** — an SF Symbol icon + label for the 4-tab bar (Home, Search, Library, Profile), with active-state `tint`.
+- **Toggle button** — the icon-only **like (heart)** and **watchlist (bookmark)** controls on the detail page.
+
+### Motion & Haptics
+
+- **Spring-based transitions:** sheet presentation and card/press interactions use **spring animations (not linear easing)** for a natural, iOS-native feel. Prefer the platform's native spring for sheet presentation and RN's spring/reanimated springs for in-content taps.
+- **Haptics:** use **`expo-haptics`** **light-impact** feedback on **rating changes** (each 0.5 step), the **like toggle**, and **save** actions (logging a watch, adding to watchlist). Keep haptics to light impact — no heavy/notification haptics for these routine actions.
+- **Reduce Motion:** respect the OS **"Reduce Motion"** accessibility setting — when enabled, replace spring/slide transitions with a simple cross-fade (or no animation) and skip non-essential motion. Ties into **Accessibility** below.
+
+### Accessibility
+
+- **Dynamic Type scaling:** text scales with the OS text-size setting and layouts reflow rather than clip (see "Typography").
+- **VoiceOver labels:** every **icon-only** control has an explicit accessibility label — the **like** toggle ("Like" / "Unlike"), the **watchlist** toggle ("Add to watchlist" / "Remove from watchlist"), and the **star rating control** (current value announced, e.g. "Rating, 3.5 of 5 stars, adjustable"). "See all" and tab items are likewise labeled.
+- **Contrast:** semantic color tokens meet **WCAG AA** contrast against **both** the light and dark `background`/`secondaryBackground` tokens — verified for `label`, `secondaryLabel`, and any text placed over translucent material.
+- **Reduce Motion:** honored as described in "Motion & Haptics" — reduced or cross-faded transitions when the OS setting is on.
+
+---
+
 ## Error Handling & Edge Cases
 
 - **No network / TMDB unreachable:** Search and Home rows show a **retry/error state**. Movies already logged locally remain fully browsable offline because their metadata is cached in the `Movie` table on first fetch.
