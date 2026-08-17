@@ -24,7 +24,11 @@ This document is written to be self-contained: someone with zero prior context s
 - Let the user **log a watch** in as few taps as possible via a single quick-log sheet (the core pain point being "too many taps to log a watch").
 - Support **rewatches**: logging a movie again always adds a new diary entry.
 - Let the user **rate** and **review** movies (one rating and one review per movie), keep a **watchlist**, and **like** movies.
-- Present the user's history through a **Library** (watched movies, diary, ratings) with a grid/list view toggle.
+- Present the user's history through a **Library** (watched movies, diary, ratings) with a grid/list view toggle, and let the user **sort and filter** it (by rating, date watched, title, genre).
+- Make rewatching frictionless with a **one-tap rewatch** shortcut, and protect destructive actions (delete/overwrite) with an **undo** affordance.
+- Surface **franchise / collection watch order** on a movie's detail page — the other films in that movie's collection, shown in order, each marked if the user has already watched it.
+- Let the user **import** an existing Letterboxd diary/ratings on first launch, and **back up / restore** all local data as JSON (there is no backend, so the on-device SQLite store is the only copy of the user's data).
+- Offer a yearly **"Your Year" recap** — a wrapped-style stats screen computed from the user's existing local diary data.
 - Show local-only **profile stats** and app settings.
 - Work **fully offline** for all app-owned data (SQLite on device); only movie metadata/images require the network (TMDB).
 - Feel visually clean and Apple-inspired (card-based, translucent "Liquid Glass"-style materials evoking iOS 26's design language).
@@ -93,11 +97,15 @@ Local cache of TMDB data plus the user's personal rating/review. One row per mov
 | `release_year` | integer | |
 | `genres` | text | Genre list (e.g. JSON-encoded array or delimited string) |
 | `overview` | text | Synopsis |
+| `collection_id` | integer, nullable | TMDB collection id from the movie's `belongs_to_collection`, cached on first fetch. Null if the movie belongs to no TMDB collection. Powers the "Franchise & Collection Ordering" row (see Screens & Features). |
+| `collection_name` | text, nullable | TMDB collection name (e.g. "The Dark Knight Collection"), cached alongside `collection_id`. Null when `collection_id` is null. |
 | `my_rating` | float, nullable | Range 0.5–5.0 in 0.5 increments |
 | `my_review` | text, nullable | |
 | `rating_updated_at` | timestamp, nullable | When the rating/review was last set/changed |
 
 > **Critical modeling decision:** rating and review are **one per movie, not one per diary entry**. Re-rating or re-reviewing a movie **overwrites** the existing value on the `Movie` row. This is a deliberate, final decision — do **not** model rating/review as per-log-entry.
+
+> **The curated shared-universe seed list is NOT a SQLite table.** The hand-curated cross-collection watch-order dataset used by "Franchise & Collection Ordering" (see Screens & Features) is **bundled static app content** — e.g. a JSON file shipped in the app bundle — not per-user data and not fetched at runtime. It therefore has no table here. Only the two nullable `collection_id`/`collection_name` columns above are added to the schema; the "already watched" indicator on the franchise row is computed on the fly from existing `LogEntry` rows, with **no new join table**.
 
 ### `LogEntry`
 
@@ -166,6 +174,18 @@ Displays:
 - A **like (heart) toggle**
 - An **add-to-watchlist toggle**
 - A **"Similar movies"** row (TMDB similar endpoint)
+- A **franchise / collection row**, when the movie belongs to one — see "Franchise & Collection Ordering" below
+
+### Franchise & Collection Ordering
+
+When a movie belongs to a franchise or collection, the detail page shows a **horizontal row of the other films in that collection, in release order**, so the user can see the intended watch order at a glance. Each poster in the row carries a small **"already watched" indicator** when the user has at least one `LogEntry` for that movie — computed on the fly by checking `LogEntry`, with **no new join table** and no persisted "franchise" record.
+
+This ships as **two layers**:
+
+1. **Dynamic TMDB collections (automatic, zero maintenance).** TMDB exposes a `belongs_to_collection` field on a movie and a `/collection/{id}` endpoint that returns the collection's member movies. When a cached movie has a `collection_id` (see Data Model), the app fetches that collection's members and renders them release-ordered. This is automatic for any movie TMDB has grouped, needs no upkeep, and cleanly handles trilogies and direct sequel chains (e.g. "The Dark Knight Collection," "Star Wars Collection").
+2. **A small bundled static seed list (hand-curated shared universes).** A short, manually-maintained dataset shipped with the app (bundled JSON — see the Data Model note, **not** a SQLite table) maps well-known **cross-collection shared universes** to a suggested watch order by TMDB movie id. The seed ships with the user's own examples — the **MCU** and the **Transformers** films — as its starting entries.
+
+> **Honest limitation, and the judgment call that resolves it (please correct if wrong).** TMDB's official collections are usually just **direct sequel chains**, not shared universes: "Iron Man Collection," "Captain America Collection," and "Avengers Collection" are each a *separate* TMDB collection, and TMDB has **no single unified "MCU" collection** spanning all of them. So a pure TMDB-collections approach **cannot alone** produce "the MCU in watch order" — which is exactly the example that motivated this feature. The resolution is the two-layer design above: layer 1 (dynamic TMDB collections) covers simple franchises automatically, and layer 2 (the bundled seed list) hand-curates a **short, deliberately incomplete** set of famous shared universes (MCU, Transformers to start) on top. This seed list is **manually maintained and intentionally small** — it is **not** a general-purpose franchise database, and it is **not** a Phase 1 completeness requirement that it be exhaustive. Growing it is ongoing maintenance / future-phase work, not something Phase 1 must finish.
 
 ### Logging a watch ("quick-log")
 
@@ -184,11 +204,17 @@ Save behavior:
 
 This single-sheet flow was chosen over a Letterboxd-style multi-screen step-by-step flow specifically because the core identified pain point was "too many taps to log a watch."
 
+**One-tap rewatch.** For a movie already in the Library, a **long-press or swipe action on the Library item** logs "watched again today" — creating a new `LogEntry` dated today **without opening the quick-log sheet at all**. This is the fastest path for the common "watched this again" case; it touches only `LogEntry` (no rating/review change, so no overwrite concern) and reuses the existing diary model.
+
+**Undo on destructive actions.** Deleting a diary entry, and overwriting an existing rating/review, both surface a brief **undo toast** immediately afterward so a mistaken tap is instantly reversible. This complements the overwrite guard above (the guard asks *before* overwriting a review; the toast lets the user reverse *after* the fact) and covers diary-entry deletes, which have no confirmation step of their own.
+
 ### Library tab
 
 - Home for the user's **watched movies** (backed by `LogEntry`/`Movie`), **diary**, and **ratings**.
 - Includes a user-facing **grid/list view toggle** (poster grid vs. compact row list).
 - **Scope of the toggle:** this grid/list toggle applies **only** to the Library/diary screen in Phase 1 — **not** to Search results or Home rows, which keep simpler fixed layouts to limit Phase 1 UI surface area.
+- **Sort & filter.** The Library supports **sorting** (by rating, date watched, title) and **filtering** (by genre), operating entirely over the existing `LogEntry`/`Movie` rows — no new tables or schema. This is the one screen where the user's own history is large enough to need reordering/narrowing, so the controls live here rather than being spread across Search/Home.
+- The **one-tap rewatch** long-press/swipe action (see "Logging a watch") lives on Library items.
 
 ### Watchlist
 
@@ -207,6 +233,21 @@ This single-sheet flow was chosen over a Letterboxd-style multi-screen step-by-s
 - In Phase 1 this is **local-only**: the user's own **stats** (count watched, average rating, etc.) and **app settings**.
 - **No** username, **no** profile picture, **no** public-facing version yet.
 - This screen is explicitly the **seed** that becomes the public profile page in Phase 2, so its internal structure should be reasonably ready to grow into that — but it should **not** attempt to build any public/account functionality now.
+
+### Data import & export
+
+Because Phase 1 has **no backend**, the on-device SQLite store is the **only** copy of the user's diary, ratings, watchlist, and likes. Two local-only data flows protect and seed that data, both reached from **Profile → Settings**:
+
+- **Letterboxd CSV import.** On first launch (and available afterward from Settings), the user can import an existing **Letterboxd diary/ratings CSV export**. Imported rows are matched to TMDB movies and written into the existing `Movie`/`LogEntry` tables (a rating/review maps to `Movie`, each watched-date row to a `LogEntry`), so a switching user starts with their history intact rather than an empty app.
+- **Local backup & restore.** The user can **export** all app-owned data to a **JSON file** and **restore** from one. This is a plain local file the user manages themselves (e.g. via the iOS share sheet / Files) — there is no cloud sync in Phase 1; it exists specifically because the SQLite store is otherwise the only copy.
+
+Both flows operate purely over the **existing** tables and add **no new schema**. Ambiguous CSV titles reuse the same TMDB disambiguation already described in "Error Handling & Edge Cases" rather than any custom matcher.
+
+### "Your Year" recap
+
+A **wrapped-style yearly recap** screen — total films watched, hours (from runtime), top genres, highest-rated, busiest month, and similar highlights — computed **on demand from the existing local diary data** (`LogEntry`/`Movie`), persisting nothing new. It reads as its own focused screen rather than more rows on Profile, but is reached from the Profile tab.
+
+> **Placement judgment (please correct if wrong):** the recap is given its **own Screens & Features subsection** and its own screen, entered from Profile, rather than being folded inline into the Profile tab's stats. Reason: it is a seasonal, celebratory, full-screen experience distinct from Profile's always-on summary stats. It adds no data model of its own either way, so this is purely a UI-placement call and cheap to revisit.
 
 ---
 
@@ -362,3 +403,4 @@ See [`docs/ROADMAP.md`](../../ROADMAP.md) for the full phase list and status. Ea
 - **Phase 2 — TV Series, Anime & Media-Type Selection:** [`2026-08-17-phase2-series-anime-media-selection.md`](2026-08-17-phase2-series-anime-media-selection.md)
 - **Phase 3 — Accounts, Backend & Public Profiles:** [`2026-08-17-phase3-accounts-public-profiles.md`](2026-08-17-phase3-accounts-public-profiles.md)
 - **Phase 4 — Further Media Types (Books, Manga, Music):** [`2026-08-17-phase4-additional-media-types.md`](2026-08-17-phase4-additional-media-types.md)
+- **Phase 5 — Platform Integration (Widget, Spotlight, Siri):** [`2026-08-17-phase5-platform-integration.md`](2026-08-17-phase5-platform-integration.md)

@@ -15,6 +15,7 @@ This is a placeholder of intent, not a design. It exists so the eventual shape o
 - **Anime support**, via AniList/Jikan (MyAnimeList) — a separate catalog/metadata source from TMDB, since anime data (especially for series not licensed for Western TV databases) is better served by AniList/Jikan.
 - **Episode/season progression tracking** — for both series and anime: tracking which season/episode the user has reached, distinct from the movie-style "watched or not" model. This is a genuinely new data-modeling problem Phase 1 doesn't touch (movies have no progression concept).
 - **Media-type selection** — once series and anime exist alongside movies, the user picks which media types they actively engage with, during first-run onboarding and editable afterward in Profile → Settings. Unselected types get no tab, no empty list, no dead-end screen. This is the first phase where selection is a real feature (Phase 1 has exactly one type, so there's nothing to select).
+- **Custom curated lists** — user-created collections beyond the single built-in Watchlist that Phase 1 ships (e.g. a "Best of 2024" list). This is a new **many-to-many** data-model shape — a List holds many media items, and a media item can belong to many lists — worth designing once, generically. It is placed in Phase 2 rather than Phase 1 deliberately, for the same reason media-type selection is: a custom list becomes meaningfully more useful once there is more than one media type to mix into it (a "Best of 2024" spanning movies and series), so the generic List↔Media relationship is best designed alongside the first additional media type rather than built movies-only in Phase 1 and immediately reshaped afterward.
 
 ## Explicitly not decided yet
 
@@ -25,6 +26,7 @@ Everything below is a real open question for the brainstorming pass when this ph
 - Whether rating/review stays one-per-title (as movies do) or needs to also support per-season rating.
 - The exact onboarding flow for media-type selection (first-run wizard vs. defaulting to "Movies only" and prompting to add more).
 - Whether the Home tab's row structure (Trending/Top 10/Suggested/Discover) is per-media-type or blended.
+- The exact shape of custom lists — whether they are ordered or unordered, whether the same media item may appear in multiple lists (assumed yes), and the concrete List↔Media schema — none of which is decided here; it is designed when this phase is brainstormed.
 
 ## Depends on
 
