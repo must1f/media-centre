@@ -88,6 +88,7 @@ Local cache of TMDB data plus the user's personal rating/review. One row per mov
 | `tmdb_id` | integer | **Primary key** (the movie's TMDB id) |
 | `title` | text | |
 | `poster_path` | text | TMDB poster path |
+| `dominant_color` | text, nullable | Hex color extracted from the poster on first cache, used for Poster-Driven Glass tinting. Falls back to the default accent when null. |
 | `release_year` | integer | |
 | `genres` | text | Genre list (e.g. JSON-encoded array or delimited string) |
 | `overview` | text | Synopsis |
@@ -229,23 +230,28 @@ The type system uses the **system font (San Francisco on iOS)**, obtained throug
 | Subheadline | 15 | Regular | Card meta line (year · genre · rating), secondary content |
 | Caption | 12 | Regular | Timestamps, badges, tertiary metadata |
 
+- **Numerals & data:** numeric UI — the **Top 10** row badges, the **star-rating numeric value**, and **year/runtime** meta — uses **SF Pro Rounded** (`ui-rounded` in RN's font-family stack) rather than the standard SF Pro used for prose. This mirrors Apple's own use of Rounded for badges and data in apps like Fitness and News, and gives numeric UI a distinct, friendly texture against the sharper prose type.
+
 - **Dynamic Type:** text respects the user's OS text-size setting. Use RN's `allowFontScaling` (default-on) and size text with the scalable font metrics rather than fixed line heights that clip. Layouts (cards, rows, sheet content) must reflow, not truncate, at larger accessibility text sizes. This ties directly into **Accessibility** below.
 
 ### Color System & Appearance Modes
 
-Colors are defined as **semantic tokens**, never as hardcoded hex values sprinkled through components. Each token resolves to a different concrete value in light vs. dark mode; components reference the token, so appearance switching is automatic.
+Colors are defined as **semantic tokens**, never as hardcoded hex values sprinkled through components. Each token resolves to a named, concrete value in light vs. dark mode; components reference the token, so appearance switching is automatic. The palette is grounded in the movie-marquee subject rather than an arbitrary brand color.
 
-| Token | Purpose | Light (approx.) | Dark (approx.) |
-| --- | --- | --- | --- |
-| `background` | Primary screen background | near-white | near-black |
-| `secondaryBackground` | Cards, grouped surfaces, sheet body | light gray | elevated dark gray |
-| `label` | Primary text | near-black | near-white |
-| `secondaryLabel` | Meta lines, captions | mid gray | dim gray |
-| `accent` / `tint` | Interactive elements, active tab, selected star | user-chosen accent | user-chosen accent |
-| `separator` | Hairline dividers, list separators | hairline gray | hairline gray (dark) |
+| Token | Name | Purpose | Light | Dark |
+| --- | --- | --- | --- | --- |
+| `background` | **Canvas** | Primary screen background | Canvas Light `#F5F5F7` | Canvas Dark `#0B0B0D` |
+| `secondaryBackground` | — | Cards, grouped surfaces, sheet body | `#FFFFFF` | `#1C1C1E` |
+| `label` | **Ink** | Primary text | `#1C1C1E` | `#F5F5F5` |
+| `secondaryLabel` | **Secondary Ink** | Meta text, captions | `#6E6E73` | `#98989D` |
+| `accent` / `tint` | **Marquee Amber** | Default/resting accent: active tab, buttons, star-rating fill | `#FF9F0A` | `#FF9F0A` |
+| `separator` | — | Hairline dividers, list separators | `#C6C6C8` | `#38383A` |
+| _(dynamic)_ | **Poster-tinted Glass** | Per-movie tint on single-film screens | see "Signature: Poster-Driven Glass" | see "Signature: Poster-Driven Glass" |
 
+- **Marquee Amber** is the default/resting accent, used for the active tab, buttons, and star-rating fill whenever no film-specific tint is active. It is chosen deliberately over a generic neon/acid accent: warm amber reads as movie-marquee / cinema-lighting, grounding the accent in the subject rather than picking an arbitrary brand color.
+- **Poster-tinted Glass** is not a fixed hex; it is a dynamic token derived per movie — see the **"Signature: Poster-Driven Glass"** subsection below.
 - **Light / Dark / Auto:** all three are fully supported. **Auto** (follow system) is the default; a manual override lives in **Profile → Settings**. Read the active scheme via RN `useColorScheme()` plus the user's override preference, resolving tokens accordingly.
-- **Accent color personalization:** the user may pick an accent/tint color (a small fixed palette, Apple-style), stored in local settings and applied to the `accent`/`tint` token app-wide. This is the personalization described in the callout above and lives in **Profile → Settings** alongside the appearance-mode control. Persist the choice in the local settings store (no accounts — see "Architecture & Stack").
+- **Accent color personalization:** the user may override **Marquee Amber** with another accent/tint color (a small fixed palette, Apple-style), stored in local settings and applied to the `accent`/`tint` token app-wide. This is the personalization described in the callout above and lives in **Profile → Settings** alongside the appearance-mode control. Persist the choice in the local settings store (no accounts — see "Architecture & Stack").
 
 ### Materials ("Liquid Glass")
 
@@ -254,6 +260,14 @@ Translucent, blurred materials are the signature of the look and are implemented
 - **Where translucency IS used:** the **bottom tab bar**, the **quick-log bottom sheet** background, and the **navigation bar / large-title header** background. These are chrome surfaces that sit over scrolling content, so the blur reads as depth and looks intentionally Apple-like.
 - **Where translucency is NOT used:** **dense list content** — Library compact rows, search-result rows, and the bodies of cards — render on the **opaque** `secondaryBackground` token. Blurring behind dense, fast-scrolling content hurts both **readability** and **performance** (many stacked `BlurView`s are expensive), so those surfaces stay solid.
 - **Layering & elevation:** depth comes from **subtle shadows and hairline (`separator`-colored) borders**, not heavy drop-shadows. Cards use a soft, low-opacity shadow (small blur radius, minimal offset) to lift them a hair off the background; adjacent surfaces are delineated with 1px hairline borders. Avoid pronounced, dark Material-style elevation shadows — they read as Android, not iOS.
+
+### Signature: Poster-Driven Glass
+
+This is the one memorable, subject-grounded visual idea for the app. On any screen centered on a **single film** — the **Movie detail page** and the **quick-log sheet** — the translucent glass surfaces and the accent color **tint to that film's poster's dominant color**, the way Apple Music's Now Playing screen or the Apple TV app color their chrome around whatever is currently in focus.
+
+- **Applied with restraint:** **Home**, **Search**, and **Library** stay on the neutral **Canvas** / **Marquee Amber** palette described above, because those are multi-poster browse/scan screens where a shifting per-item tint would be visually noisy. The tint is reserved for single-film focus, so it reads as a deliberate reveal rather than decoration smeared across every screen.
+- **Implementation approach:** extract a dominant color from each movie's poster image client-side, **once**, at the same time the poster is first cached (see "Caching model" in "Architecture & Stack") — not recomputed on every view. Store the result in the `Movie.dominant_color` column (see "Data Model") so it is available offline exactly like the rest of the cached poster metadata.
+- **Graceful fallback:** if dominant-color extraction fails, or is still pending for a movie not yet cached, fall back to the default **Marquee Amber** tint — never block rendering on it.
 
 ### Iconography
 
