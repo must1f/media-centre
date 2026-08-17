@@ -8,9 +8,11 @@
 
 ## Overview
 
-Media Centre is a personal media-logging app in the spirit of Letterboxd, intended to eventually cover **movies, TV series, and anime** with reviews, diary entries, ratings, and (for episodic media) episode-progression tracking. The motivation is that Letterboxd's UI feels clunky, dated, and slow for the core "log what I watched" action, with weak search/discovery and a hard-to-navigate diary. Media Centre aims to feel cleaner, faster, and more like a modern, Apple-designed app.
+Media Centre is a personal media-logging app in the spirit of Letterboxd, intended to eventually cover **movies, TV series, anime, books, manga, and music** — and potentially further media types beyond that — with reviews, diary entries, ratings, and (for episodic/serial media) progression tracking. The motivation is that Letterboxd's UI feels clunky, dated, and slow for the core "log what I watched" action, with weak search/discovery and a hard-to-navigate diary. Media Centre aims to feel cleaner, faster, and more like a modern, Apple-designed app.
 
-The full product vision spans several independent subsystems (media cataloging, logging/diary, social/accounts, progression tracking for episodic media), so it is being built in phases. **This document specifies Phase 1 only: a fully-functional, movies-only, local-only (no accounts) version of the app.** TV series, anime, and all social/account features are explicitly deferred to Phase 2+ (see "Deferred to Phase 2 — What's Next") and are **out of scope** for the implementation plan that follows this spec.
+Because the eventual set of media types is open-ended, the long-term product is **not** "a movies app" — it is a media-logging shell into which individual media types plug in, each with their own catalog source, screens, and progression model, but sharing the same logging/rating/review/diary pattern. Once a second media type exists, the user **chooses which media types they actively engage with** (e.g. movies + anime, but not manga), and only the types they've opted into get a presence in the app's navigation — there is no point showing an empty "Manga" section to someone who doesn't read manga. This selection mechanism, and every media type beyond movies, is **out of scope for Phase 1** (see "Deferred — What's Next"); it is captured here so Phase 1 naming and structure don't accidentally assume movies are the only thing this app will ever do.
+
+The full product vision spans several independent subsystems (media cataloging per type, logging/diary, social/accounts, progression tracking, media-type selection), so it is being built in phases. **This document specifies Phase 1 only: a fully-functional, movies-only, local-only (no accounts) version of the app, with exactly one media type and therefore no type-selection UI.** TV series, anime, every other media type, and all social/account features are explicitly deferred to later phases (see "Deferred — What's Next") and are **out of scope** for the implementation plan that follows this spec.
 
 This document is written to be self-contained: someone with zero prior context should be able to read only this document and know exactly what to build for Phase 1.
 
@@ -34,8 +36,9 @@ This document is written to be self-contained: someone with zero prior context s
 - No user accounts, authentication, or backend.
 - No public profiles, public reviews, usernames, or profile pictures.
 - No social features of any kind.
-- No TV series or anime support.
+- No TV series, anime, books, manga, music, or any media type other than movies.
 - No episode/season progression tracking.
+- No **media-type selection UI** — with exactly one media type in Phase 1, there is nothing to choose between yet. This arrives once a second media type exists (see "Deferred — What's Next").
 - No per-user public/private visibility toggles (likes are a purely local boolean flag with no visibility concept).
 - No full end-to-end UI test automation.
 
@@ -352,7 +355,7 @@ This is a solo / personal-scale project. Verification strategy:
 
 ---
 
-## Deferred to Phase 2 — What's Next
+## Deferred — What's Next (Phase 2+)
 
 The following are **out of scope** for the Phase 1 implementation plan and are listed here only as a brief pointer to what comes next:
 
@@ -361,3 +364,5 @@ The following are **out of scope** for the Phase 1 implementation plan and are l
 - **Username and profile picture** selection.
 - **TV series support** (via TMDB).
 - **Anime support** (via AniList/Jikan) plus an episode/season **progression-level tracking** feature specific to episodic media.
+- **Further media types** — books, manga, music, and potentially others beyond that. Each is its own pluggable module (its own catalog/metadata source, its own screens, its own progression model where relevant — e.g. chapters for manga, tracks/albums for music) built on the same underlying log/rate/review/diary pattern established for movies in Phase 1, rather than forced into the movie-shaped schema.
+- **Media-type selection:** once a second media type ships, the user picks which types they actively engage with — during first-run onboarding, and editable afterward in Profile → Settings. Only the types a user has opted into appear in navigation; an unselected type contributes no tab, no empty list, no dead-end screen. Architecturally, this means each media type's nav entry and data module become conditional on the user's selection rather than a fixed, hardcoded set — a consideration for whichever phase introduces the second media type, not for Phase 1's single-type navigation.
