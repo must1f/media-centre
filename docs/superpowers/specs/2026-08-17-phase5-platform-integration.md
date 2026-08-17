@@ -5,6 +5,18 @@
 
 ---
 
+## Progress Checklist
+
+- [x] High-level scope captured (this document)
+- [ ] Brainstormed into a full design spec — **blocked until Phase 4 is fully implemented and verified**
+- [ ] Spec approved
+- [ ] Implementation plan written
+- [ ] Implemented
+- [ ] Verified (manual testing + relevant unit tests)
+- [ ] Phase 5 complete (no further phase currently planned beyond this one)
+
+---
+
 ## Purpose of this document
 
 This is a placeholder of intent, not a design. It exists so the eventual shape of Phase 5 isn't lost between now and when Phase 4 is done — at which point this document is the starting point for a real brainstorming pass, not something to implement as-is.

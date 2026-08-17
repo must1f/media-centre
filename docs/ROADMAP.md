@@ -2,15 +2,15 @@
 
 Media Centre is built one phase at a time. **A phase is only designed (brainstormed into a spec) once the phase before it has been fully implemented and verified — never in parallel, never ahead of schedule.** This keeps each phase's spec grounded in what actually exists, instead of guessing at a moving foundation.
 
-Each phase gets its own document under `docs/superpowers/specs/`. This file is the index: what each phase covers, and where it currently stands.
+Each phase gets its own document under `docs/superpowers/specs/`, and each of those documents opens with its own **Progress Checklist** — that's the source of truth for what's actually done. This table is just the at-a-glance summary; update both together.
 
 | Phase | Focus | Status | Spec |
 | --- | --- | --- | --- |
-| 1 | Movies MVP — search/browse/log/rate/review/diary/watchlist/likes, fully local, no accounts, one media type | Spec approved, not yet implemented | [`2026-08-17-movies-mvp-design.md`](superpowers/specs/2026-08-17-movies-mvp-design.md) |
-| 2 | TV series & anime (2nd and 3rd media types), episode/season progression tracking, and media-type selection (choose which types you engage with) | Scope captured; not yet brainstormed into a full spec | [`2026-08-17-phase2-series-anime-media-selection.md`](superpowers/specs/2026-08-17-phase2-series-anime-media-selection.md) |
-| 3 | Accounts + backend, authentication, public profile pages, username/profile picture, public/private visibility | Scope captured; not yet brainstormed into a full spec | [`2026-08-17-phase3-accounts-public-profiles.md`](superpowers/specs/2026-08-17-phase3-accounts-public-profiles.md) |
-| 4 | Further media types — books, manga, music, and beyond — as pluggable modules on the pattern Phase 1 establishes | Scope captured; not yet brainstormed into a full spec | [`2026-08-17-phase4-additional-media-types.md`](superpowers/specs/2026-08-17-phase4-additional-media-types.md) |
-| 5 | Platform integration — iOS Home Screen widget, Spotlight search, and Siri Shortcuts/App Intents ("log [movie] as watched") | Scope captured; not yet brainstormed into a full spec | [`2026-08-17-phase5-platform-integration.md`](superpowers/specs/2026-08-17-phase5-platform-integration.md) |
+| 1 | Movies MVP — search/browse/log/rate/review/diary/watchlist/likes, fully local, no accounts, one media type | Spec approved — **implementation in progress** (foundation + movie detail page built; Home/Search/Library/Profile still placeholders; quick-log sheet has a broken import — see the spec's Progress Checklist) | [`2026-08-17-movies-mvp-design.md`](superpowers/specs/2026-08-17-movies-mvp-design.md) |
+| 2 | TV series & anime (2nd and 3rd media types), episode/season progression tracking, and media-type selection (choose which types you engage with) | Scope captured; not yet brainstormed — blocked on Phase 1 | [`2026-08-17-phase2-series-anime-media-selection.md`](superpowers/specs/2026-08-17-phase2-series-anime-media-selection.md) |
+| 3 | Accounts + backend, authentication, public profile pages, username/profile picture, public/private visibility | Scope captured; not yet brainstormed — blocked on Phase 2 | [`2026-08-17-phase3-accounts-public-profiles.md`](superpowers/specs/2026-08-17-phase3-accounts-public-profiles.md) |
+| 4 | Further media types — books, manga, music, and beyond — as pluggable modules on the pattern Phase 1 establishes | Scope captured; not yet brainstormed — blocked on Phase 3 | [`2026-08-17-phase4-additional-media-types.md`](superpowers/specs/2026-08-17-phase4-additional-media-types.md) |
+| 5 | Platform integration — iOS Home Screen widget, Spotlight search, and Siri Shortcuts/App Intents ("log [movie] as watched") | Scope captured; not yet brainstormed — blocked on Phase 4 | [`2026-08-17-phase5-platform-integration.md`](superpowers/specs/2026-08-17-phase5-platform-integration.md) |
 
 ## Why this ordering
 

@@ -1,8 +1,47 @@
 # Media Centre — Phase 1 (Movies MVP) Design Spec
 
 **Date:** 2026-08-17
-**Status:** Approved — ready for implementation planning
+**Status:** Approved — implementation in progress (see checklist below)
 **Scope:** Phase 1 only (movies, local-only, no accounts)
+
+---
+
+## Progress Checklist
+
+Reflects the actual state of the codebase as of 2026-08-17 — update this list as work lands, don't let it drift.
+
+**Foundation**
+- [x] Expo + React Native + TypeScript project scaffolded, with `expo-router` 4-tab navigation + a movie-detail route
+- [x] Design tokens & theme system (light/dark, matches "Visual Design System" below)
+- [x] SQLite schema created — `Movie`, `LogEntry`, `WatchlistItem`, `Liked`
+- [x] Data-access layer (`db/movies.ts`, `logEntries.ts`, `watchlist.ts`, `likes.ts`)
+- [x] TMDB service integration (`services/tmdb.ts`)
+- [x] Recommendations + settings service scaffolding (`services/recommendations.ts`, `services/settings.ts`)
+- [x] Reusable component library — `CardFeedItem`, `PosterGridCell`, `CompactLibraryRow`, `GenreTile`, `StarRatingControl`, `ToggleButton`, `RowHeader`, `EmptyState`, `ErrorState`, `PosterBackdrop`
+- [x] Correct dependencies installed (`expo-blur`, `expo-haptics`, `expo-symbols`, `expo-sqlite`, `expo-image`, `react-native-reanimated`)
+
+**Screens**
+- [x] Movie detail page — Poster-Driven Glass backdrop, like/watchlist toggles with haptics, rating/review display, overview, cast row, similar-movies row
+- [ ] ⚠️ **Quick-log bottom sheet** — `app/movie/[id].tsx` already imports `QuickLogSheet` from `./log`, but `app/movie/log.tsx` doesn't exist yet. This is a **broken import blocking the app from building today** — highest-priority next step.
+- [ ] Home tab — currently a placeholder screen ("Trending, Top 10, Suggested For You, and Discover rows coming soon")
+- [ ] Search tab — currently a placeholder screen ("Search bar + genre tile grid coming soon")
+- [ ] Library tab — currently a placeholder screen ("Your diary, ratings, watchlist, and grid/list toggle coming soon")
+- [ ] Profile tab — currently a placeholder screen
+
+**Spec additions not yet reflected in code** (added to this document after the current code snapshot)
+- [ ] `Movie.collection_id` / `Movie.collection_name` columns — not yet in `db/schema.ts`
+- [ ] Franchise & Collection Ordering row on the detail page
+- [ ] Data import/export (Letterboxd CSV import, local JSON backup/restore)
+- [ ] One-tap rewatch shortcut
+- [ ] Undo toast on delete/overwrite
+- [ ] "Your Year" recap screen
+- [ ] Library sort & filter
+
+**Verification**
+- [ ] Unit tests for the SQLite data-access layer (overwrite-on-relog behavior especially)
+- [ ] Unit tests for Suggested-For-You / Discover-Something-New selection logic
+- [ ] Manual testing on iOS Simulator / device
+- [ ] **Phase 1 complete → Phase 2 design work unlocked** (see [`docs/ROADMAP.md`](../../ROADMAP.md) — nothing in Phase 2 is designed in detail until every box above is checked)
 
 ---
 
