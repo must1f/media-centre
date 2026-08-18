@@ -152,3 +152,9 @@ export function backdropUrl(backdropPath: string | null | undefined, size: strin
   if (!backdropPath) return null;
   return `${TMDB_IMAGE_BASE}/${size}${backdropPath}`;
 }
+
+/** Build a full TMDB episode-still URL. Size: 'w300' | 'w780' | 'original' */
+export function stillUrl(stillPath: string | null | undefined, size: string = 'w300'): string | null {
+  if (!stillPath) return null;
+  return `${TMDB_IMAGE_BASE}/${size}${stillPath}`;
+}
