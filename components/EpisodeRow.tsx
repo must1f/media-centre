@@ -14,6 +14,8 @@ interface EpisodeRowProps {
   watched: boolean;
   /** 0-1 in-progress fraction. When set, renders a progress bar instead of the runtime caption. */
   progressFraction?: number | null;
+  /** Whether to prefix the label with "S·" (season indicator). Set false for flat, season-less lists (e.g. anime). Defaults to true. */
+  showSeasonPrefix?: boolean;
   onToggleWatched: () => void;
   onPress: () => void;
 }
@@ -25,6 +27,7 @@ export function EpisodeRow({
   runtimeMinutes,
   watched,
   progressFraction,
+  showSeasonPrefix = true,
   onToggleWatched,
   onPress,
 }: EpisodeRowProps) {
@@ -56,7 +59,7 @@ export function EpisodeRow({
 
       <View style={styles.textContainer}>
         <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
-          {`S·E${episodeNumber} — ${title}`}
+          {showSeasonPrefix ? `S·E${episodeNumber} — ${title}` : `E${episodeNumber} — ${title}`}
         </Text>
         {progressFraction != null ? (
           <View style={[styles.progressTrack, { backgroundColor: colors.tertiaryBackground }]}>
