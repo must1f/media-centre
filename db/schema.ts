@@ -70,7 +70,7 @@ export function initDatabase(): void {
     -- Diary: one row per watch (rewatches accumulate)
     CREATE TABLE IF NOT EXISTS LogEntry (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
-      movie_id     INTEGER NOT NULL REFERENCES Movie(tmdb_id) ON DELETE CASCADE,
+      movie_id     INTEGER NOT NULL,
       watched_date TEXT    NOT NULL,
       note         TEXT,
       created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
@@ -78,13 +78,13 @@ export function initDatabase(): void {
 
     -- Watchlist
     CREATE TABLE IF NOT EXISTS WatchlistItem (
-      movie_id INTEGER PRIMARY KEY REFERENCES Movie(tmdb_id) ON DELETE CASCADE,
+      movie_id INTEGER PRIMARY KEY,
       added_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
     -- Likes (local boolean flag — powers Suggested/Discover algorithms)
     CREATE TABLE IF NOT EXISTS Liked (
-      movie_id INTEGER PRIMARY KEY REFERENCES Movie(tmdb_id) ON DELETE CASCADE,
+      movie_id INTEGER PRIMARY KEY,
       liked_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
