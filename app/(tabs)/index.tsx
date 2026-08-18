@@ -180,7 +180,7 @@ function StitchSeriesTile({ item, onPress }: { item: TmdbSeries; onPress: () => 
 // ─── Stitch Anime Tile (140px wide, 2:3 ratio, inner white border, red glow on press) ─
 function StitchAnimeTile({ item, onPress }: { item: AniListMedia; onPress: () => void }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
-  const imgUri = item.coverImage.large;
+  const imgUri = posterUrl(item.coverImage.large, 'w342');
 
   const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 1.05, useNativeDriver: true }).start();
   const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
