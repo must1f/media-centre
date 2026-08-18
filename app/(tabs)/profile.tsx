@@ -37,7 +37,7 @@ export default function ProfileScreen() {
     React.useCallback(() => {
       setMovies(getAllCachedMovies());
       setLogEntries(getAllLogEntries());
-      setWatchlistIds(getWatchlistIds());
+      setWatchlistIds(getWatchlistIds('movie'));
     }, [])
   );
 

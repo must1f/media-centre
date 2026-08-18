@@ -42,7 +42,7 @@ export default function VaultScreen() {
     React.useCallback(() => {
       setMovies(getAllCachedMovies());
       setLogEntries(getAllLogEntries());
-      setWatchlistIds(getWatchlistIds());
+      setWatchlistIds(getWatchlistIds('movie'));
     }, [])
   );
 

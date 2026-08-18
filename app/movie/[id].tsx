@@ -79,7 +79,7 @@ export default function MovieDetailScreen() {
 
       setLocalMovie(getMovie(tmdbId));
       setLiked(isLiked(tmdbId));
-      setWatchlisted(isOnWatchlist(tmdbId));
+      setWatchlisted(isOnWatchlist(tmdbId, 'movie'));
     } catch {
       setError(true);
     } finally {
@@ -98,7 +98,7 @@ export default function MovieDetailScreen() {
   }
 
   function handleWatchlistToggle() {
-    const next = toggleWatchlist(tmdbId);
+    const next = toggleWatchlist(tmdbId, 'movie');
     setWatchlisted(next);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
