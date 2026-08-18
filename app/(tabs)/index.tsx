@@ -26,6 +26,7 @@ import { backdropUrl, posterUrl } from '@/constants/tokens';
 import { getTrending, getTopRated, type TmdbMovie } from '@/services/tmdb';
 import { getSuggestedForYou, getDiscoverSomethingNew } from '@/services/recommendations';
 import { getTrendingSeries, type TmdbSeries } from '@/services/tmdbTv';
+import { getTrendingAnime, type AniListMedia } from '@/services/anilist';
 import { getAllCachedSeries, type Series } from '@/db/series';
 import { getWatchedEpisodeCount, getTotalEpisodeCount } from '@/db/episodes';
 
@@ -94,6 +95,29 @@ function useSeriesRow(fetcher: () => Promise<TmdbSeries[]>) {
   return { series, loading, error, reload: load };
 }
 
+function useAnimeRow(fetcher: () => Promise<AniListMedia[]>) {
+  const [anime, setAnime] = useState<AniListMedia[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError(false);
+    try {
+      const data = await fetcher();
+      setAnime(data);
+    } catch (err) {
+      console.error(err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { load(); }, []);
+  return { anime, loading, error, reload: load };
+}
+
 // ─── Stitch Movie Tile (140px wide, 2:3 ratio, inner white border, red glow on press) ─
 function StitchMovieTile({ movie, onPress }: { movie: TmdbMovie; onPress: () => void }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -135,6 +159,28 @@ function StitchMovieTile({ movie, onPress }: { movie: TmdbMovie; onPress: () => 
 function StitchSeriesTile({ item, onPress }: { item: TmdbSeries; onPress: () => void }) {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const imgUri = posterUrl(item.poster_path, 'w342');
+
+  const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 1.05, useNativeDriver: true }).start();
+  const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
+
+  return (
+    <Pressable onPress={onPress} onPressIn={handlePressIn} onPressOut={handlePressOut}>
+      <Animated.View style={[styles.movieTile, { transform: [{ scale: scaleAnim }] }]}>
+        {imgUri ? (
+          <Image source={{ uri: imgUri }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        ) : (
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: STITCH.surfaceContainerHigh }]} />
+        )}
+        <View style={styles.movieTileInnerBorder} />
+      </Animated.View>
+    </Pressable>
+  );
+}
+
+// ─── Stitch Anime Tile (140px wide, 2:3 ratio, inner white border, red glow on press) ─
+function StitchAnimeTile({ item, onPress }: { item: AniListMedia; onPress: () => void }) {
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+  const imgUri = item.coverImage.large;
 
   const handlePressIn = () => Animated.spring(scaleAnim, { toValue: 1.05, useNativeDriver: true }).start();
   const handlePressOut = () => Animated.spring(scaleAnim, { toValue: 1, useNativeDriver: true }).start();
@@ -308,6 +354,52 @@ function SeriesRow({
   );
 }
 
+// ─── Anime Row ────────────────────────────────────────────────────────────────
+function AnimeRow({
+  title,
+  anime,
+  loading,
+  error,
+  onRetry,
+}: {
+  title: string;
+  anime: AniListMedia[];
+  loading: boolean;
+  error: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <View style={styles.rowSection}>
+      <SectionHeader title={title} />
+      {loading ? (
+        <ActivityIndicator color={STITCH.primaryContainer} style={styles.rowLoader} />
+      ) : error ? (
+        <View style={styles.rowError}>
+          <ErrorState body={`Could not load ${title.toLowerCase()}.`} onRetry={onRetry} />
+        </View>
+      ) : (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.rowScroll}
+          decelerationRate="fast"
+          snapToInterval={140 + 12}
+          snapToAlignment="start"
+        >
+          {anime.map((item) => (
+            <View key={item.id} style={styles.tileSpacer}>
+              <StitchAnimeTile
+                item={item}
+                onPress={() => router.push(`/anime/${item.id}`)}
+              />
+            </View>
+          ))}
+        </ScrollView>
+      )}
+    </View>
+  );
+}
+
 interface InProgressSeries {
   series: Series;
   watched: number;
@@ -321,6 +413,7 @@ export default function HomeScreen() {
   const suggested = useMovieRow(getSuggestedForYou);
   const discover = useMovieRow(getDiscoverSomethingNew);
   const trendingSeries = useSeriesRow(getTrendingSeries);
+  const trendingAnime = useAnimeRow(getTrendingAnime);
   const [inProgressSeries, setInProgressSeries] = useState<InProgressSeries[]>([]);
 
   const featuredMovie = trending.movies.length > 0 ? trending.movies[0] : null;
@@ -471,6 +564,15 @@ export default function HomeScreen() {
             loading={trendingSeries.loading}
             error={trendingSeries.error}
             onRetry={trendingSeries.reload}
+          />
+
+          {/* Trending Anime */}
+          <AnimeRow
+            title="Trending Anime"
+            anime={trendingAnime.anime}
+            loading={trendingAnime.loading}
+            error={trendingAnime.error}
+            onRetry={trendingAnime.reload}
           />
 
           {/* Top 10 This Week */}
