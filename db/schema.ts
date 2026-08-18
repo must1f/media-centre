@@ -78,14 +78,18 @@ export function initDatabase(): void {
 
     -- Watchlist
     CREATE TABLE IF NOT EXISTS WatchlistItem (
-      movie_id INTEGER PRIMARY KEY,
-      added_at TEXT NOT NULL DEFAULT (datetime('now'))
+      movie_id   INTEGER NOT NULL,
+      media_type TEXT    NOT NULL DEFAULT 'movie',
+      added_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (movie_id, media_type)
     );
 
     -- Likes (local boolean flag — powers Suggested/Discover algorithms)
     CREATE TABLE IF NOT EXISTS Liked (
-      movie_id INTEGER PRIMARY KEY,
-      liked_at TEXT NOT NULL DEFAULT (datetime('now'))
+      movie_id   INTEGER NOT NULL,
+      media_type TEXT    NOT NULL DEFAULT 'movie',
+      liked_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (movie_id, media_type)
     );
   `);
 
@@ -95,11 +99,10 @@ export function initDatabase(): void {
   addColumnIfMissing('Movie', 'collection_name', 'TEXT');
   addColumnIfMissing('LogEntry', 'note', 'TEXT');
 
-  // media_type disambiguates movie_id vs. a Series tmdb_id in these
-  // originally movie-only tables — 'movie' is the default so existing rows
-  // stay correctly attributed.
-  addColumnIfMissing('WatchlistItem', 'media_type', "TEXT NOT NULL DEFAULT 'movie'");
-  addColumnIfMissing('Liked', 'media_type', "TEXT NOT NULL DEFAULT 'movie'");
+  // media_type disambiguates movie_id vs. a Series tmdb_id. WatchlistItem and
+  // Liked declare it inline (with a composite PK) in CREATE TABLE above;
+  // LogEntry has no uniqueness constraint on movie_id, so it still needs the
+  // retrofit for pre-existing databases.
   addColumnIfMissing('LogEntry', 'media_type', "TEXT NOT NULL DEFAULT 'movie'");
 }
 
