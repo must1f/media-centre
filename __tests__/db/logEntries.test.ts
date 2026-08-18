@@ -47,6 +47,8 @@ describe('setRating overwrite guard', () => {
       release_year: 2026,
       genres: null,
       overview: 'Overview',
+      collection_id: null,
+      collection_name: null,
       my_rating: 4.0,
       my_review: 'Original review text',
       rating_updated_at: '2026-08-17',
@@ -69,6 +71,8 @@ describe('setRating overwrite guard', () => {
       release_year: 2026,
       genres: null,
       overview: 'Overview',
+      collection_id: null,
+      collection_name: null,
       my_rating: 4.0,
       my_review: 'Original review text',
       rating_updated_at: '2026-08-17',
@@ -94,6 +98,8 @@ describe('setRating overwrite guard', () => {
       release_year: 2026,
       genres: null,
       overview: 'Overview',
+      collection_id: null,
+      collection_name: null,
       my_rating: 4.0,
       my_review: 'Original review text',
       rating_updated_at: '2026-08-17',
@@ -157,5 +163,15 @@ describe('hasWatched', () => {
       expect.stringContaining('WHERE movie_id = ? AND media_type = ?'),
       [1399, 'series'],
     );
+  });
+
+  it('returns true when at least one log entry exists', () => {
+    mockGetFirstSync.mockReturnValue({ count: 2 });
+    expect(hasWatched(123, 'movie')).toBe(true);
+  });
+
+  it('returns false when no log entries exist', () => {
+    mockGetFirstSync.mockReturnValue({ count: 0 });
+    expect(hasWatched(123, 'movie')).toBe(false);
   });
 });

@@ -1,10 +1,13 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Dimensions,
+  Linking,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -20,7 +23,7 @@ import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/context/ThemeContext';
 import { FontSize, FontWeight, Radius, Spacing, backdropUrl, posterUrl } from '@/constants/tokens';
-import type { TmdbMovie } from '@/services/tmdb';
+import { getVideos, pickTrailer, type TmdbMovie } from '@/services/tmdb';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -34,6 +37,28 @@ export function FeaturedHeroBanner({ movie, onPress }: FeaturedHeroBannerProps) 
   const imageUrl = backdropUrl(movie.backdrop_path, 'w780') ?? posterUrl(movie.poster_path, 'w780');
   const releaseYear = movie.release_date ? movie.release_date.slice(0, 4) : null;
   const rating = movie.vote_average ? movie.vote_average.toFixed(1) : null;
+  const [loadingTrailer, setLoadingTrailer] = useState(false);
+
+  async function handleWatchTrailer() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLoadingTrailer(true);
+    try {
+      const videos = await getVideos(movie.id);
+      const trailer = pickTrailer(videos);
+      if (!trailer) {
+        Alert.alert('No trailer available', `We couldn't find a YouTube trailer for ${movie.title}.`);
+        return;
+      }
+      const appUrl = `youtube://${trailer.key}`;
+      const webUrl = `https://www.youtube.com/watch?v=${trailer.key}`;
+      const canOpenApp = await Linking.canOpenURL(appUrl);
+      await Linking.openURL(canOpenApp ? appUrl : webUrl);
+    } catch {
+      Alert.alert('Something went wrong', 'Unable to load the trailer right now.');
+    } finally {
+      setLoadingTrailer(false);
+    }
+  }
 
   // Stitch subtle ambient glow pulse
   const glowOpacity = useSharedValue(0.45);
@@ -153,13 +178,17 @@ export function FeaturedHeroBanner({ movie, onPress }: FeaturedHeroBannerProps) 
             >
               <TouchableOpacity
                 style={styles.ctaButtonInner}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  onPress();
-                }}
+                onPress={handleWatchTrailer}
                 activeOpacity={0.8}
+                disabled={loadingTrailer}
+                accessibilityRole="button"
+                accessibilityLabel={`Watch trailer for ${movie.title}`}
               >
-                <SymbolView name="play.fill" size={14} tintColor="#FFFFFF" weight="heavy" />
+                {loadingTrailer ? (
+                  <ActivityIndicator color="#FFFFFF" size="small" />
+                ) : (
+                  <SymbolView name="play.fill" size={14} tintColor="#FFFFFF" weight="heavy" />
+                )}
                 <Text style={styles.ctaButtonText}>Watch Now</Text>
               </TouchableOpacity>
             </Animated.View>

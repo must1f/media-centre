@@ -8,6 +8,8 @@ export interface Movie {
   release_year: number | null;
   genres: string | null;       // JSON-encoded string array e.g. '["Action","Drama"]'
   overview: string | null;
+  collection_id: number | null;
+  collection_name: string | null;
   my_rating: number | null;   // 0.5-5.0 in 0.5 increments
   my_review: string | null;
   rating_updated_at: string | null;
@@ -16,14 +18,16 @@ export interface Movie {
 /** Insert or replace TMDB metadata for a movie. Does NOT touch my_rating / my_review. */
 export function upsertMovie(movie: Omit<Movie, 'my_rating' | 'my_review' | 'rating_updated_at'>): void {
   db.runSync(
-    `INSERT INTO Movie (tmdb_id, title, poster_path, dominant_color, release_year, genres, overview)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
+    `INSERT INTO Movie (tmdb_id, title, poster_path, dominant_color, release_year, genres, overview, collection_id, collection_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(tmdb_id) DO UPDATE SET
-       title          = excluded.title,
-       poster_path    = excluded.poster_path,
-       release_year   = excluded.release_year,
-       genres         = excluded.genres,
-       overview       = excluded.overview`,
+       title           = excluded.title,
+       poster_path     = excluded.poster_path,
+       release_year    = excluded.release_year,
+       genres          = excluded.genres,
+       overview        = excluded.overview,
+       collection_id   = excluded.collection_id,
+       collection_name = excluded.collection_name`,
     [
       movie.tmdb_id,
       movie.title,
@@ -32,6 +36,8 @@ export function upsertMovie(movie: Omit<Movie, 'my_rating' | 'my_review' | 'rati
       movie.release_year ?? null,
       movie.genres ?? null,
       movie.overview ?? null,
+      movie.collection_id ?? null,
+      movie.collection_name ?? null,
     ],
   );
 }

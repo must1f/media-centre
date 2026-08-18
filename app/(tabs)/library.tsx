@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import {
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,12 +12,14 @@ import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { SymbolView } from 'expo-symbols';
+import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/context/ThemeContext';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/tokens';
 import { PosterGridCell } from '@/components/PosterGridCell';
 import { CompactLibraryRow } from '@/components/CompactLibraryRow';
 import { EmptyState } from '@/components/EmptyState';
 import { RowHeader } from '@/components/RowHeader';
+import { sortMovies, primaryGenreName, SORT_OPTIONS, type SortOption } from '@/services/librarySort';
 
 // DB CRUD functions
 import { getAllCachedMovies, type Movie } from '@/db/movies';
@@ -32,6 +36,8 @@ export default function VaultScreen() {
   // Filter & view mode state
   const [activeFilter, setActiveFilter] = useState<FilterCategory>('all');
   const [displayMode, setDisplayMode] = useState<DisplayMode>('reels');
+  const [sortBy, setSortBy] = useState<SortOption | null>(null);
+  const [sortMenuVisible, setSortMenuVisible] = useState(false);
 
   // Data State
   const [movies, setMovies] = useState<Movie[]>([]);
@@ -55,22 +61,28 @@ export default function VaultScreen() {
   const watchedMovieIds = new Set(
     logEntries.filter((l) => l.media_type === 'movie').map((l) => l.movie_id)
   );
-  const watchedMovies = movies.filter((m) => watchedMovieIds.has(m.tmdb_id));
+  const watchedMoviesBase = movies.filter((m) => watchedMovieIds.has(m.tmdb_id));
 
   const watchedSeriesIds = new Set(
     logEntries.filter((l) => l.media_type === 'series').map((l) => l.movie_id)
   );
   const watchedSeries = series.filter((s) => watchedSeriesIds.has(s.tmdb_id));
 
-  const ratedMovies = movies
-    .filter((m) => m.my_rating !== null)
-    .sort((a, b) => (b.my_rating ?? 0) - (a.my_rating ?? 0));
+  const ratedMoviesBase = movies.filter((m) => m.my_rating !== null);
 
   const watchlistSet = new Set(watchlistIds);
-  const watchlistMovies = movies.filter((m) => watchlistSet.has(m.tmdb_id));
+  const watchlistMoviesBase = movies.filter((m) => watchlistSet.has(m.tmdb_id));
 
   const watchlistSeriesSet = new Set(watchlistSeriesIds);
   const watchlistSeries = series.filter((s) => watchlistSeriesSet.has(s.tmdb_id));
+
+  // Apply the active sort (falling back to sensible defaults per section when none chosen)
+  const watchedMovies = sortBy ? sortMovies(watchedMoviesBase, sortBy, logEntries) : watchedMoviesBase;
+  const ratedMovies = sortBy
+    ? sortMovies(ratedMoviesBase, sortBy, logEntries)
+    : sortMovies(ratedMoviesBase, 'rating', logEntries);
+  const watchlistMovies = sortBy ? sortMovies(watchlistMoviesBase, sortBy, logEntries) : watchlistMoviesBase;
+  const sortedMovies = sortBy ? sortMovies(movies, sortBy, logEntries) : movies;
 
   // Combined watchlist (movies + series) for the "Watchlist" reel/filter/grid/list.
   const watchlistItems = [
@@ -78,7 +90,7 @@ export default function VaultScreen() {
     ...watchlistSeries.map((s) => ({ ...s, mediaType: 'series' as const })),
   ];
 
-  const diaryItems = logEntries.map((log) => {
+  const diaryItemsBase = logEntries.map((log) => {
     const movie = movies.find((m) => m.tmdb_id === log.movie_id);
     return {
       logId: log.id,
@@ -87,11 +99,47 @@ export default function VaultScreen() {
       posterPath: movie?.poster_path ?? null,
       releaseYear: movie?.release_year ?? null,
       rating: movie?.my_rating ?? null,
+      genre: primaryGenreName(movie?.genres ?? null),
       watchedDate: log.watched_date,
     };
   });
 
-  const totalVaultCount = movies.length + watchlistMovies.length + watchlistSeries.length + series.length;
+  const diaryItems = sortBy
+    ? [...diaryItemsBase].sort((a, b) => {
+        switch (sortBy) {
+          case 'rating':
+            return (b.rating ?? -1) - (a.rating ?? -1);
+          case 'title':
+            return a.title.toLowerCase().localeCompare(b.title.toLowerCase());
+          case 'genre':
+            if (a.genre === '' && b.genre === '') return 0;
+            if (a.genre === '') return 1;
+            if (b.genre === '') return -1;
+            return a.genre.toLowerCase().localeCompare(b.genre.toLowerCase());
+          case 'dateWatched':
+          default:
+            return b.watchedDate.localeCompare(a.watchedDate);
+        }
+      })
+    : diaryItemsBase;
+
+  const totalVaultCount = movies.length + watchlistMoviesBase.length + watchlistSeries.length + series.length;
+
+  // The single data set currently on screen for grid/list mode, respecting both the active filter and sort.
+  const listModeData: any[] =
+    activeFilter === 'watchlist'
+      ? watchlistItems
+      : activeFilter === 'ratings'
+      ? ratedMovies
+      : activeFilter === 'diary'
+      ? diaryItems
+      : activeFilter === 'series'
+      ? watchedSeries.length > 0
+        ? watchedSeries
+        : series
+      : watchedMovies.length > 0
+      ? watchedMovies
+      : sortedMovies;
 
   const navigateToDetail = (tmdbId: number) => {
     router.push(`/movie/${tmdbId}`);
@@ -221,6 +269,36 @@ export default function VaultScreen() {
         </Text>
 
         <View style={styles.viewControls}>
+          <TouchableOpacity
+            style={[
+              styles.sortButton,
+              {
+                backgroundColor: sortBy ? colors.secondaryBackground : 'transparent',
+                borderColor: sortBy ? colors.accent : colors.separator,
+                borderWidth: 1,
+              },
+            ]}
+            onPress={() => setSortMenuVisible(true)}
+            activeOpacity={0.8}
+            accessibilityLabel="Sort library"
+            accessibilityRole="button"
+          >
+            <SymbolView
+              name="arrow.up.arrow.down"
+              size={13}
+              tintColor={sortBy ? colors.accent : colors.secondaryLabel}
+              weight="semibold"
+            />
+            <Text
+              style={[
+                styles.sortButtonText,
+                { color: sortBy ? colors.accent : colors.secondaryLabel },
+              ]}
+            >
+              {sortBy ? SORT_OPTIONS.find((o) => o.id === sortBy)?.label : 'Sort'}
+            </Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[
               styles.viewToggleBtn,
@@ -395,7 +473,7 @@ export default function VaultScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingHorizontal: Spacing.md }}
               >
-                {movies.map((movie) => (
+                {sortedMovies.map((movie) => (
                   <View key={movie.tmdb_id} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
                     <PosterGridCell
                       tmdbId={movie.tmdb_id}
@@ -439,22 +517,12 @@ export default function VaultScreen() {
       ) : displayMode === 'grid' || (activeFilter !== 'all' && displayMode === 'reels') ? (
         /* Full Grid Mode */
         <FlashList
-          data={
-            activeFilter === 'series'
-              ? series
-              : activeFilter === 'watchlist'
-              ? watchlistItems
-              : activeFilter === 'ratings'
-              ? ratedMovies
-              : activeFilter === 'diary'
-              ? (diaryItems as any)
-              : watchedMovies.length > 0
-              ? watchedMovies
-              : movies
-          }
+          data={listModeData}
           numColumns={3}
           keyExtractor={(item: any) =>
-            `${item.mediaType ?? (activeFilter === 'series' ? 'series' : 'movie')}-${item.tmdb_id ?? item.tmdbId}`
+            item.logId != null
+              ? `log-${item.logId}`
+              : `${item.mediaType ?? (activeFilter === 'series' ? 'series' : 'movie')}-${item.tmdb_id ?? item.tmdbId}`
           }
           contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, paddingBottom: 130 }}
           ItemSeparatorComponent={() => <View style={{ height: Spacing.xs }} />}
@@ -480,21 +548,11 @@ export default function VaultScreen() {
             ]}
           >
             <FlashList
-              data={
-                activeFilter === 'series'
-                  ? series
-                  : activeFilter === 'watchlist'
-                  ? watchlistItems
-                  : activeFilter === 'ratings'
-                  ? ratedMovies
-                  : activeFilter === 'diary'
-                  ? (diaryItems as any)
-                  : watchedMovies.length > 0
-                  ? watchedMovies
-                  : movies
-              }
+              data={listModeData}
               keyExtractor={(item: any) =>
-                `${item.mediaType ?? (activeFilter === 'series' ? 'series' : 'movie')}-${item.tmdb_id ?? item.tmdbId}`
+                item.logId != null
+                  ? `log-${item.logId}`
+                  : `${item.mediaType ?? (activeFilter === 'series' ? 'series' : 'movie')}-${item.tmdb_id ?? item.tmdbId}`
               }
               contentContainerStyle={{ paddingBottom: 130 }}
               renderItem={({ item, index }: { item: any; index: number }) => (
@@ -505,13 +563,72 @@ export default function VaultScreen() {
                   rating={item.my_rating ?? item.rating}
                   watchedDate={item.watchedDate}
                   onPress={() => navigateToItem(item)}
-                  isLast={index === movies.length - 1}
+                  isLast={index === listModeData.length - 1}
                 />
               )}
             />
           </View>
         </View>
       )}
+
+      {/* Sort Menu */}
+      <Modal
+        visible={sortMenuVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSortMenuVisible(false)}
+      >
+        <Pressable
+          style={styles.sortMenuBackdrop}
+          onPress={() => setSortMenuVisible(false)}
+          accessibilityLabel="Close sort menu"
+        >
+          <Pressable
+            style={[
+              styles.sortMenuCard,
+              { backgroundColor: colors.secondaryBackground, ...colors.cardShadow },
+            ]}
+            onPress={() => {}}
+          >
+            <Text style={[styles.sortMenuHeader, { color: colors.secondaryLabel }]}>Sort By</Text>
+            {SORT_OPTIONS.map((option) => {
+              const isActive = sortBy === option.id;
+              return (
+                <TouchableOpacity
+                  key={option.id}
+                  style={styles.sortMenuItem}
+                  activeOpacity={0.7}
+                  accessibilityLabel={`Sort by ${option.label}`}
+                  accessibilityRole="menuitem"
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setSortBy(isActive ? null : option.id);
+                    setSortMenuVisible(false);
+                  }}
+                >
+                  <View style={styles.sortMenuItemLabel}>
+                    <SymbolView
+                      name={option.icon as any}
+                      size={15}
+                      tintColor={isActive ? colors.accent : colors.secondaryLabel}
+                      weight="medium"
+                    />
+                    <Text
+                      style={[
+                        styles.sortMenuItemText,
+                        { color: isActive ? colors.accent : colors.label, fontWeight: isActive ? FontWeight.semibold : FontWeight.regular },
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </View>
+                  {isActive && <SymbolView name="checkmark" size={14} tintColor={colors.accent} weight="bold" />}
+                </TouchableOpacity>
+              );
+            })}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -592,6 +709,58 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: Spacing.sm,
+    height: 30,
+    borderRadius: Radius.small,
+  },
+  sortButtonText: {
+    fontSize: FontSize.caption1,
+    fontWeight: FontWeight.semibold,
+  },
+  sortMenuBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-start',
+    alignItems: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
+  },
+  sortMenuCard: {
+    marginTop: 220,
+    marginRight: Spacing.md,
+    minWidth: 190,
+    borderRadius: Radius.medium,
+    paddingVertical: Spacing.xs,
+    overflow: 'hidden',
+    // @ts-ignore
+    borderCurve: 'continuous',
+  },
+  sortMenuHeader: {
+    fontSize: FontSize.caption2,
+    fontWeight: FontWeight.bold,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xs,
+  },
+  sortMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm + 2,
+  },
+  sortMenuItemLabel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  sortMenuItemText: {
+    fontSize: FontSize.subheadline,
   },
   reelsScroll: {
     flex: 1,

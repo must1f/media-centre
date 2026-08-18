@@ -145,11 +145,11 @@ export default function ProfileScreen() {
                   backgroundColor:
                     colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
                   borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: 1,
+                  borderWidth: colorScheme === 'dark' ? 0 : 1,
                 },
               ]}
             >
-              <Text style={[styles.statNumber, { color: colors.label }]}>{totalWatched}</Text>
+              <Text style={[styles.statNumber, { color: '#FFB4AA' }]}>{totalWatched}</Text>
               <Text style={[styles.statUnit, { color: colors.secondaryLabel }]}>MOVIES</Text>
             </View>
 
@@ -161,7 +161,7 @@ export default function ProfileScreen() {
                   backgroundColor:
                     colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
                   borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: 1,
+                  borderWidth: colorScheme === 'dark' ? 0 : 1,
                 },
               ]}
             >
@@ -177,7 +177,7 @@ export default function ProfileScreen() {
                   backgroundColor:
                     colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
                   borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: 1,
+                  borderWidth: colorScheme === 'dark' ? 0 : 1,
                 },
               ]}
             >
@@ -193,11 +193,11 @@ export default function ProfileScreen() {
                   backgroundColor:
                     colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
                   borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: 1,
+                  borderWidth: colorScheme === 'dark' ? 0 : 1,
                 },
               ]}
             >
-              <Text style={[styles.statNumber, { color: colors.label }]}>{diaryCount}</Text>
+              <Text style={[styles.statNumber, { color: '#C8C6C6' }]}>{diaryCount}</Text>
               <Text style={[styles.statUnit, { color: colors.secondaryLabel }]}>DIARIES</Text>
             </View>
           </View>
@@ -260,7 +260,7 @@ export default function ProfileScreen() {
                   backgroundColor:
                     colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
                   borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: 1,
+                  borderWidth: colorScheme === 'dark' ? 0 : 1,
                 },
               ]}
               onPress={() => router.push('/library')}
@@ -281,7 +281,7 @@ export default function ProfileScreen() {
                   backgroundColor:
                     colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
                   borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: 1,
+                  borderWidth: colorScheme === 'dark' ? 0 : 1,
                 },
               ]}
               onPress={() => router.push('/library')}
@@ -302,7 +302,7 @@ export default function ProfileScreen() {
                   backgroundColor:
                     colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
                   borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: 1,
+                  borderWidth: colorScheme === 'dark' ? 0 : 1,
                 },
               ]}
               onPress={() => router.push('/library')}
@@ -323,7 +323,7 @@ export default function ProfileScreen() {
                   backgroundColor:
                     colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
                   borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: 1,
+                  borderWidth: colorScheme === 'dark' ? 0 : 1,
                 },
               ]}
               scaleTo={0.94}
@@ -332,6 +332,26 @@ export default function ProfileScreen() {
               <View style={styles.quickAccessMeta}>
                 <Text style={[styles.quickAccessTitle, { color: colors.label }]}>Achievements</Text>
                 <Text style={[styles.quickAccessSub, { color: colors.secondaryLabel }]}>12 badges</Text>
+              </View>
+            </AnimatedPressable>
+
+            {/* Your Year recap */}
+            <AnimatedPressable
+              style={[
+                styles.quickAccessCard,
+                {
+                  backgroundColor: colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
+                  borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                  borderWidth: colorScheme === 'dark' ? 0 : 1,
+                },
+              ]}
+              onPress={() => router.push('/year-recap')}
+              scaleTo={0.94}
+            >
+              <SymbolView name="sparkles" size={20} tintColor={colors.accent} weight="bold" />
+              <View style={styles.quickAccessMeta}>
+                <Text style={[styles.quickAccessTitle, { color: colors.label }]}>Your Year</Text>
+                <Text style={[styles.quickAccessSub, { color: colors.secondaryLabel }]}>{new Date().getFullYear()} recap</Text>
               </View>
             </AnimatedPressable>
           </View>
@@ -347,7 +367,7 @@ export default function ProfileScreen() {
                 backgroundColor:
                   colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
                 borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                borderWidth: 1,
+                borderWidth: colorScheme === 'dark' ? 0 : 1,
               },
             ]}
           >
@@ -359,7 +379,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.systemLeft}>
                 <View style={[styles.systemIconBadge, { backgroundColor: '#353534' }]}>
-                  <SymbolView name="gearshape.fill" size={17} tintColor="#E5E2E1" weight="medium" />
+                  <SymbolView name="gearshape.fill" size={17} tintColor={colors.secondaryLabel} weight="medium" />
                 </View>
                 <Text style={[styles.systemRowTitle, { color: colors.label }]}>Account Settings</Text>
               </View>
@@ -376,7 +396,7 @@ export default function ProfileScreen() {
             >
               <View style={styles.systemLeft}>
                 <View style={[styles.systemIconBadge, { backgroundColor: '#353534' }]}>
-                  <SymbolView name="clock.arrow.circlepath" size={17} tintColor="#A7C8FF" weight="medium" />
+                  <SymbolView name="clock.arrow.circlepath" size={17} tintColor={colors.secondaryLabel} weight="medium" />
                 </View>
                 <Text style={[styles.systemRowTitle, { color: colors.label }]}>Watch History</Text>
               </View>
@@ -389,7 +409,7 @@ export default function ProfileScreen() {
             <TouchableOpacity style={styles.systemRow} activeOpacity={0.75}>
               <View style={styles.systemLeft}>
                 <View style={[styles.systemIconBadge, { backgroundColor: '#353534' }]}>
-                  <SymbolView name="film.stack" size={17} tintColor={colors.accent} weight="medium" />
+                  <SymbolView name="film.stack" size={17} tintColor={colors.secondaryLabel} weight="medium" />
                 </View>
                 <View>
                   <Text style={[styles.systemRowTitle, { color: colors.label }]}>Subscription</Text>
@@ -401,11 +421,28 @@ export default function ProfileScreen() {
 
             <View style={[styles.divider, { backgroundColor: 'rgba(255, 255, 255, 0.06)' }]} />
 
+            {/* Import & Backup */}
+            <TouchableOpacity
+              style={styles.systemRow}
+              onPress={() => router.push('/settings/data')}
+              activeOpacity={0.75}
+            >
+              <View style={styles.systemLeft}>
+                <View style={[styles.systemIconBadge, { backgroundColor: '#353534' }]}>
+                  <SymbolView name="arrow.up.arrow.down.circle" size={17} tintColor="#A7C8FF" weight="medium" />
+                </View>
+                <Text style={[styles.systemRowTitle, { color: colors.label }]}>Import & Backup</Text>
+              </View>
+              <SymbolView name="chevron.right" size={14} tintColor={colors.secondaryLabel} weight="semibold" />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { backgroundColor: 'rgba(255, 255, 255, 0.06)' }]} />
+
             {/* Help & Support */}
             <TouchableOpacity style={styles.systemRow} activeOpacity={0.75}>
               <View style={styles.systemLeft}>
                 <View style={[styles.systemIconBadge, { backgroundColor: '#353534' }]}>
-                  <SymbolView name="questionmark.circle" size={17} tintColor="#C8C6C6" weight="medium" />
+                  <SymbolView name="questionmark.circle" size={17} tintColor={colors.secondaryLabel} weight="medium" />
                 </View>
                 <Text style={[styles.systemRowTitle, { color: colors.label }]}>Help & Support</Text>
               </View>

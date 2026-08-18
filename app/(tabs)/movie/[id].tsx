@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -16,6 +16,12 @@ import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { PosterBackdrop } from '@/components/PosterBackdrop';
 import { ToggleButton } from '@/components/ToggleButton';
@@ -30,6 +36,8 @@ import { getMovieDetails, type TmdbMovieDetail, type TmdbMovie } from '@/service
 import { upsertMovie, getMovie, type Movie } from '@/db/movies';
 import { isLiked, toggleLike } from '@/db/likes';
 import { isOnWatchlist, toggleWatchlist } from '@/db/watchlist';
+import { hasWatched, logWatch, getLogEntriesForMedia } from '@/db/logEntries';
+import { getFranchiseRow, type FranchiseRow } from '@/services/franchise';
 import { QuickLogSheet } from '@/components/QuickLogSheet';
 
 function releaseYearFrom(detail: TmdbMovieDetail): number | null {
@@ -59,6 +67,11 @@ export default function MovieDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showLogSheet, setShowLogSheet] = useState(false);
+  const [franchiseRow, setFranchiseRow] = useState<FranchiseRow | null>(null);
+  const [watchCount, setWatchCount] = useState(0);
+  const [justRewatched, setJustRewatched] = useState(false);
+  const rewatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rewatchScale = useSharedValue(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,17 +88,31 @@ export default function MovieDetailScreen() {
         release_year: releaseYearFrom(data),
         genres: JSON.stringify(data.genres ?? []),
         overview: data.overview,
+        collection_id: data.belongs_to_collection?.id ?? null,
+        collection_name: data.belongs_to_collection?.name ?? null,
       });
 
       setLocalMovie(getMovie(tmdbId));
       setLiked(isLiked(tmdbId, 'movie'));
       setWatchlisted(isOnWatchlist(tmdbId, 'movie'));
+
+      getFranchiseRow(data)
+        .then((row) => setFranchiseRow(row ? { ...row, movies: row.movies.filter((m) => m.id !== tmdbId) } : null))
+        .catch(() => setFranchiseRow(null));
+
+      setWatchCount(getLogEntriesForMedia(tmdbId, 'movie').length);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
   }, [tmdbId]);
+
+  useEffect(() => {
+    return () => {
+      if (rewatchTimerRef.current) clearTimeout(rewatchTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     load();
@@ -115,10 +142,38 @@ export default function MovieDetailScreen() {
     }
   }
 
-  function handleLogSaved() {
-    setShowLogSheet(false);
+  function handleLogChanged() {
     setLocalMovie(getMovie(tmdbId));
+    setWatchCount(getLogEntriesForMedia(tmdbId, 'movie').length);
   }
+
+  function handleLogDismiss() {
+    handleLogChanged();
+    setShowLogSheet(false);
+  }
+
+  function handleRewatch() {
+    const today = new Date().toISOString().slice(0, 10);
+    logWatch(tmdbId, 'movie', today);
+
+    setLocalMovie(getMovie(tmdbId));
+    setWatchCount(getLogEntriesForMedia(tmdbId, 'movie').length);
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    rewatchScale.value = withSequence(
+      withSpring(1.15, { damping: 10, stiffness: 260 }),
+      withSpring(1, { damping: 12, stiffness: 260 })
+    );
+
+    setJustRewatched(true);
+    if (rewatchTimerRef.current) clearTimeout(rewatchTimerRef.current);
+    rewatchTimerRef.current = setTimeout(() => setJustRewatched(false), 1500);
+  }
+
+  const rewatchAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: rewatchScale.value }],
+  }));
+
 
   const similar: TmdbMovie[] = detail?.similar?.results?.slice(0, 10) ?? [];
   const cast = detail?.credits?.cast?.slice(0, 10) ?? [];
@@ -262,8 +317,34 @@ export default function MovieDetailScreen() {
                 accessibilityLabel="Log this movie"
               >
                 <SymbolView name="sparkles" size={16} tintColor="#FFFFFF" weight="bold" />
-                <Text style={styles.primaryLogButtonText}>Log Movie</Text>
+                <Text style={styles.primaryLogButtonText}>Rate & Review</Text>
               </TouchableOpacity>
+
+              {watchCount > 0 && (
+                <Animated.View style={rewatchAnimatedStyle}>
+                  <TouchableOpacity
+                    style={[
+                      styles.rewatchButton,
+                      {
+                        backgroundColor: colors.searchBarBackground,
+                        borderColor: colors.accent,
+                        borderWidth: 1.5,
+                      },
+                    ]}
+                    onPress={handleRewatch}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Log a rewatch for today"
+                  >
+                    <SymbolView
+                      name={justRewatched ? 'checkmark' : 'arrow.clockwise'}
+                      size={18}
+                      tintColor={colors.accent}
+                      weight="bold"
+                    />
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
 
               <ToggleButton
                 type="like"
@@ -434,7 +515,32 @@ export default function MovieDetailScreen() {
               </View>
             )}
 
-            <View style={{ height: 60 }} />
+            {/* Franchise & Collection Ordering */}
+            {franchiseRow && franchiseRow.movies.length > 0 && (
+              <View style={styles.section}>
+                <RowHeader title={franchiseRow.title} />
+                <FlashList
+                  horizontal
+                  data={franchiseRow.movies}
+                  keyExtractor={(item) => String(item.id)}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+                  ItemSeparatorComponent={() => <View style={{ width: Spacing.xs }} />}
+                  renderItem={({ item }) => (
+                    <CardFeedItem
+                      tmdbId={item.id}
+                      title={item.title}
+                      posterPath={item.poster_path}
+                      releaseYear={item.release_date ? parseInt(item.release_date.slice(0, 4), 10) : null}
+                      watched={hasWatched(item.id, 'movie')}
+                      onPress={() => router.push(`/movie/${item.id}`)}
+                    />
+                  )}
+                />
+              </View>
+            )}
+
+            <View style={{ height: 120 }} />
           </ScrollView>
         </PosterBackdrop>
       ) : null}
@@ -451,11 +557,14 @@ export default function MovieDetailScreen() {
             tmdbId={tmdbId}
             title={detail.title}
             posterPath={detail.poster_path}
+            backdropPath={detail.backdrop_path}
+            genreLabel={detail.genres?.[0]?.name ?? null}
+            releaseYear={year}
             dominantColor={localMovie?.dominant_color}
             existingReview={localMovie?.my_review ?? null}
             existingRating={localMovie?.my_rating ?? null}
-            onSave={handleLogSaved}
-            onDismiss={() => setShowLogSheet(false)}
+            onChange={handleLogChanged}
+            onDismiss={handleLogDismiss}
           />
         )}
       </Modal>
@@ -541,6 +650,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: FontSize.subheadline,
     fontWeight: FontWeight.bold,
+  },
+  rewatchButton: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // @ts-ignore
+    borderCurve: 'continuous',
   },
   insetCard: {
     marginHorizontal: Spacing.md,

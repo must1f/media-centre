@@ -123,6 +123,18 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="movie"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="series"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         listeners={{
           tabPress: () => {

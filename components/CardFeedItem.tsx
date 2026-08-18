@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
 import { useTheme } from '@/context/ThemeContext';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/tokens';
 import { posterUrl } from '@/constants/tokens';
@@ -29,6 +30,8 @@ interface CardFeedItemProps {
   badge?: number;
   /** Optional episode tag badge (e.g. "S3E12") shown opposite the rank badge */
   episodeTag?: string;
+  /** Shows a small "already watched" checkmark overlay (e.g. for the franchise row) */
+  watched?: boolean;
   onPress: () => void;
   style?: ViewStyle;
   width?: number;
@@ -45,6 +48,7 @@ export function CardFeedItem({
   rating,
   badge,
   episodeTag,
+  watched,
   onPress,
   style,
   width = CARD_WIDTH,
@@ -130,6 +134,18 @@ export function CardFeedItem({
             <Text style={styles.episodeTagText}>{episodeTag}</Text>
           </View>
         ) : null}
+
+        {/* "Already watched" indicator, e.g. for the franchise/collection row */}
+        {watched && (
+          <View
+            style={[
+              styles.watchedBadge,
+              { backgroundColor: colors.accent, borderColor: colors.background, borderWidth: 2 },
+            ]}
+          >
+            <SymbolView name="checkmark" size={11} tintColor="#FFFFFF" weight="bold" />
+          </View>
+        )}
       </View>
 
       {/* Typography underneath poster */}
@@ -180,6 +196,17 @@ const styles = StyleSheet.create({
     left: 6,
     zIndex: 2,
   },
+  watchedBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 2,
+  },
   rankNumber: {
     fontSize: 48,
     fontWeight: FontWeight.heavy,
@@ -190,7 +217,7 @@ const styles = StyleSheet.create({
   episodeTagBadge: {
     position: 'absolute',
     top: Spacing.xs,
-    right: Spacing.xs,
+    left: Spacing.xs,
     backgroundColor: 'rgba(0,0,0,0.7)',
     paddingHorizontal: 6,
     paddingVertical: 2,

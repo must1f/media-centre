@@ -47,3 +47,4 @@ yarn-error.*
 
 # IDE tools
 .superpowers/
+.claude/worktrees/
