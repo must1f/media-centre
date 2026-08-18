@@ -27,10 +27,8 @@
     "plugins": [
       "expo-router",
       "expo-sqlite",
-      [
-        "expo-blur",
-        {}
-      ]
+      "expo-image",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

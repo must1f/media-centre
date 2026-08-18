@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { SymbolView } from 'expo-symbols';
 import { useTheme } from '@/context/ThemeContext';
 import { FontSize, FontWeight, Spacing } from '@/constants/tokens';
 
@@ -20,8 +21,10 @@ export function RowHeader({ title, onSeeAll }: RowHeaderProps) {
           accessibilityRole="button"
           accessibilityLabel={`See all ${title}`}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={styles.seeAllContainer}
         >
           <Text style={[styles.seeAll, { color: colors.accent }]}>See All</Text>
+          <SymbolView name="chevron.right" size={12} tintColor={colors.accent} weight="semibold" />
         </TouchableOpacity>
       ) : null}
     </View>
@@ -38,11 +41,17 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.sm,
   },
   title: {
-    fontSize: FontSize.headline,
-    fontWeight: FontWeight.semibold,
+    fontSize: FontSize.title3,
+    fontWeight: FontWeight.bold,
+    letterSpacing: -0.3,
+  },
+  seeAllContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
   },
   seeAll: {
     fontSize: FontSize.subheadline,
-    fontWeight: FontWeight.regular,
+    fontWeight: FontWeight.medium,
   },
 });

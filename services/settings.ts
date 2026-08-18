@@ -10,10 +10,11 @@ const KEYS = {
   accentColor: '@mediacentre/accentColor',
 } as const;
 
-/** Available accent color choices (Marquee Amber is the default). */
+/** Available accent color choices (Cinematic Crimson is the default). */
 export const ACCENT_PALETTE = [
-  '#FF9F0A', // Marquee Amber (default)
-  '#FF375F', // Red
+  '#E50914', // Cinematic Crimson (default)
+  '#FF9F0A', // Marquee Amber
+  '#6366F1', // Electric Indigo
   '#30D158', // Green
   '#0A84FF', // Blue
   '#BF5AF2', // Purple
@@ -31,7 +32,10 @@ export async function setAppearanceMode(mode: AppearanceMode): Promise<void> {
 
 export async function getAccentColor(): Promise<string> {
   const value = await AsyncStorage.getItem(KEYS.accentColor);
-  return value ?? ACCENT_PALETTE[0];
+  if (!value || value === '#FF9F0A') {
+    return ACCENT_PALETTE[0];
+  }
+  return value;
 }
 
 export async function setAccentColor(hex: string): Promise<void> {

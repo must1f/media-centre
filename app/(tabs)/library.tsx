@@ -1,35 +1,37 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
-  SegmentedControlIOS, // Fallback to custom segment bar for Android/Web compatibility
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
+import { SymbolView } from 'expo-symbols';
 import { useTheme } from '@/context/ThemeContext';
-import { FontSize, FontWeight, Spacing } from '@/constants/tokens';
+import { FontSize, FontWeight, Radius, Spacing } from '@/constants/tokens';
 import { PosterGridCell } from '@/components/PosterGridCell';
 import { CompactLibraryRow } from '@/components/CompactLibraryRow';
 import { EmptyState } from '@/components/EmptyState';
+import { RowHeader } from '@/components/RowHeader';
 
 // DB CRUD functions
-import { getAllCachedMovies, getRatedMovies, type Movie } from '@/db/movies';
+import { getAllCachedMovies, type Movie } from '@/db/movies';
 import { getAllLogEntries, type LogEntry } from '@/db/logEntries';
 import { getWatchlistIds } from '@/db/watchlist';
 
-type TabType = 'watched' | 'diary' | 'ratings' | 'watchlist';
-type ViewMode = 'grid' | 'list';
+type FilterCategory = 'all' | 'movies' | 'diary' | 'watchlist' | 'ratings';
+type DisplayMode = 'reels' | 'grid' | 'list';
 
-export default function LibraryScreen() {
-  const { colors } = useTheme();
-  
-  // State
-  const [activeTab, setActiveTab] = useState<TabType>('watched');
-  const [viewMode, setViewMode] = useState<ViewMode>('grid');
-  
+export default function VaultScreen() {
+  const { colors, colorScheme } = useTheme();
+
+  // Filter & view mode state
+  const [activeFilter, setActiveFilter] = useState<FilterCategory>('all');
+  const [displayMode, setDisplayMode] = useState<DisplayMode>('reels');
+
   // Data State
   const [movies, setMovies] = useState<Movie[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
@@ -45,19 +47,16 @@ export default function LibraryScreen() {
   );
 
   // Derived data sets
-  // 1. Watched Movies (Unique movies that have at least one LogEntry)
   const watchedMovieIds = new Set(logEntries.map((l) => l.movie_id));
   const watchedMovies = movies.filter((m) => watchedMovieIds.has(m.tmdb_id));
 
-  // 2. Rated Movies
-  const ratedMovies = movies.filter((m) => m.my_rating !== null)
+  const ratedMovies = movies
+    .filter((m) => m.my_rating !== null)
     .sort((a, b) => (b.my_rating ?? 0) - (a.my_rating ?? 0));
 
-  // 3. Watchlist Movies
   const watchlistSet = new Set(watchlistIds);
   const watchlistMovies = movies.filter((m) => watchlistSet.has(m.tmdb_id));
 
-  // 4. Diary Entries (Log entries enriched with Movie metadata)
   const diaryItems = logEntries.map((log) => {
     const movie = movies.find((m) => m.tmdb_id === log.movie_id);
     return {
@@ -71,267 +70,384 @@ export default function LibraryScreen() {
     };
   });
 
-  const renderHeader = () => {
-    return (
-      <View style={styles.header}>
-        <Text style={[styles.largeTitle, { color: colors.label }]}>Library</Text>
-        <TouchableOpacity
-          onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-          style={[styles.toggleButton, { borderColor: colors.separator }]}
-          accessibilityRole="button"
-          accessibilityLabel={`Switch to ${viewMode === 'grid' ? 'list' : 'grid'} view`}
-        >
-          <Text style={{ color: colors.accent, fontSize: FontSize.subheadline, fontWeight: FontWeight.semibold }}>
-            {viewMode === 'grid' ? 'List View' : 'Grid View'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const renderTabs = () => {
-    const tabs: { type: TabType; label: string }[] = [
-      { type: 'watched', label: 'Watched' },
-      { type: 'diary', label: 'Diary' },
-      { type: 'ratings', label: 'Ratings' },
-      { type: 'watchlist', label: 'Watchlist' },
-    ];
-
-    return (
-      <View style={[styles.tabsContainer, { borderBottomColor: colors.separator }]}>
-        {tabs.map((tab) => {
-          const isActive = activeTab === tab.type;
-          return (
-            <TouchableOpacity
-              key={tab.type}
-              style={[
-                styles.tabButton,
-                isActive && { borderBottomColor: colors.accent },
-              ]}
-              onPress={() => setActiveTab(tab.type)}
-            >
-              <Text
-                style={[
-                  styles.tabLabel,
-                  { color: isActive ? colors.accent : colors.secondaryLabel },
-                  isActive && { fontWeight: FontWeight.bold },
-                ]}
-              >
-                {tab.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    );
-  };
+  const totalVaultCount = movies.length + watchlistMovies.length;
 
   const navigateToDetail = (tmdbId: number) => {
     router.push(`/movie/${tmdbId}`);
   };
 
-  const renderContent = () => {
-    if (activeTab === 'watched') {
-      if (watchedMovies.length === 0) {
-        return (
-          <EmptyState
-            title="No watched movies yet"
-            body="Movies you watch and log will appear here."
-            ctaLabel="Go Search"
-            onCtaPress={() => router.push('/search')}
-          />
-        );
-      }
-      return viewMode === 'grid' ? (
-        <FlashList
-          data={watchedMovies}
-          numColumns={3}
-          keyExtractor={(item) => String(item.tmdb_id)}
-          estimatedItemSize={165}
-          contentContainerStyle={{ padding: Spacing.sm, paddingBottom: 120 }}
-          renderItem={({ item }) => (
-            <PosterGridCell
-              tmdbId={item.tmdb_id}
-              title={item.title}
-              posterPath={item.poster_path}
-              releaseYear={item.release_year}
-              onPress={() => navigateToDetail(item.tmdb_id)}
-              style={{ marginHorizontal: Spacing.xs / 2, marginBottom: Spacing.sm }}
-            />
-          )}
-        />
-      ) : (
-        <FlashList
-          data={watchedMovies}
-          keyExtractor={(item) => String(item.tmdb_id)}
-          estimatedItemSize={70}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          renderItem={({ item }) => (
-            <CompactLibraryRow
-              title={item.title}
-              posterPath={item.poster_path}
-              releaseYear={item.release_year}
-              rating={item.my_rating}
-              onPress={() => navigateToDetail(item.tmdb_id)}
-            />
-          )}
-        />
-      );
-    }
-
-    if (activeTab === 'diary') {
-      if (diaryItems.length === 0) {
-        return (
-          <EmptyState
-            title="Your diary is empty"
-            body="Log a watch entry to start keeping track of your media journey."
-            ctaLabel="Browse Trending"
-            onCtaPress={() => router.push('/')}
-          />
-        );
-      }
-      return viewMode === 'grid' ? (
-        <FlashList
-          data={diaryItems}
-          numColumns={3}
-          keyExtractor={(item) => `${item.logId}`}
-          estimatedItemSize={165}
-          contentContainerStyle={{ padding: Spacing.sm, paddingBottom: 120 }}
-          renderItem={({ item }) => (
-            <PosterGridCell
-              tmdbId={item.tmdbId}
-              title={item.title}
-              posterPath={item.posterPath}
-              releaseYear={item.releaseYear}
-              onPress={() => navigateToDetail(item.tmdbId)}
-              style={{ marginHorizontal: Spacing.xs / 2, marginBottom: Spacing.sm }}
-            />
-          )}
-        />
-      ) : (
-        <FlashList
-          data={diaryItems}
-          keyExtractor={(item) => `${item.logId}`}
-          estimatedItemSize={70}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          renderItem={({ item }) => (
-            <CompactLibraryRow
-              title={item.title}
-              posterPath={item.posterPath}
-              releaseYear={item.releaseYear}
-              rating={item.rating}
-              watchedDate={item.watchedDate}
-              onPress={() => navigateToDetail(item.tmdbId)}
-            />
-          )}
-        />
-      );
-    }
-
-    if (activeTab === 'ratings') {
-      if (ratedMovies.length === 0) {
-        return (
-          <EmptyState
-            title="No ratings yet"
-            body="Rate movies when you log them or edit them from the details page."
-            ctaLabel="Go Rate Movies"
-            onCtaPress={() => router.push('/')}
-          />
-        );
-      }
-      return viewMode === 'grid' ? (
-        <FlashList
-          data={ratedMovies}
-          numColumns={3}
-          keyExtractor={(item) => String(item.tmdb_id)}
-          estimatedItemSize={165}
-          contentContainerStyle={{ padding: Spacing.sm, paddingBottom: 120 }}
-          renderItem={({ item }) => (
-            <PosterGridCell
-              tmdbId={item.tmdb_id}
-              title={item.title}
-              posterPath={item.poster_path}
-              releaseYear={item.release_year}
-              onPress={() => navigateToDetail(item.tmdb_id)}
-              style={{ marginHorizontal: Spacing.xs / 2, marginBottom: Spacing.sm }}
-            />
-          )}
-        />
-      ) : (
-        <FlashList
-          data={ratedMovies}
-          keyExtractor={(item) => String(item.tmdb_id)}
-          estimatedItemSize={70}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          renderItem={({ item }) => (
-            <CompactLibraryRow
-              title={item.title}
-              posterPath={item.poster_path}
-              releaseYear={item.release_year}
-              rating={item.my_rating}
-              onPress={() => navigateToDetail(item.tmdb_id)}
-            />
-          )}
-        />
-      );
-    }
-
-    if (activeTab === 'watchlist') {
-      if (watchlistMovies.length === 0) {
-        return (
-          <EmptyState
-            title="Your watchlist is empty"
-            body="Bookmark movies to watch them later."
-            ctaLabel="Find Movies"
-            onCtaPress={() => router.push('/search')}
-          />
-        );
-      }
-      return viewMode === 'grid' ? (
-        <FlashList
-          data={watchlistMovies}
-          numColumns={3}
-          keyExtractor={(item) => String(item.tmdb_id)}
-          estimatedItemSize={165}
-          contentContainerStyle={{ padding: Spacing.sm, paddingBottom: 120 }}
-          renderItem={({ item }) => (
-            <PosterGridCell
-              tmdbId={item.tmdb_id}
-              title={item.title}
-              posterPath={item.poster_path}
-              releaseYear={item.release_year}
-              onPress={() => navigateToDetail(item.tmdb_id)}
-              style={{ marginHorizontal: Spacing.xs / 2, marginBottom: Spacing.sm }}
-            />
-          )}
-        />
-      ) : (
-        <FlashList
-          data={watchlistMovies}
-          keyExtractor={(item) => String(item.tmdb_id)}
-          estimatedItemSize={70}
-          contentContainerStyle={{ paddingBottom: 120 }}
-          renderItem={({ item }) => (
-            <CompactLibraryRow
-              title={item.title}
-              posterPath={item.poster_path}
-              releaseYear={item.release_year}
-              rating={item.my_rating}
-              onPress={() => navigateToDetail(item.tmdb_id)}
-            />
-          )}
-        />
-      );
-    }
-
-    return null;
-  };
+  const filterChips: { id: FilterCategory; label: string; icon?: string }[] = [
+    { id: 'all', label: 'All Saves' },
+    { id: 'movies', label: 'Watched' },
+    { id: 'watchlist', label: 'Watchlist', icon: 'bookmark.fill' },
+    { id: 'ratings', label: 'Ratings', icon: 'star.fill' },
+    { id: 'diary', label: 'Diary', icon: 'calendar' },
+  ];
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
-      {renderHeader()}
-      {renderTabs()}
-      {renderContent()}
+      {/* Stitch Top Header */}
+      <View style={styles.header}>
+        <View style={styles.headerBrand}>
+          <View
+            style={[
+              styles.brandLogo,
+              {
+                backgroundColor: colors.accent,
+                shadowColor: colors.accent,
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.45,
+                shadowRadius: 8,
+                elevation: 4,
+              },
+            ]}
+          >
+            <SymbolView name="folder.fill.badge.plus" size={16} tintColor="#FFFFFF" weight="heavy" />
+          </View>
+          <Text style={[styles.largeTitle, { color: colors.label }]}>Vault</Text>
+        </View>
+
+        <TouchableOpacity
+          style={[
+            styles.profileAvatarButton,
+            {
+              borderColor: colors.accent,
+              backgroundColor: colors.secondaryBackground,
+            },
+          ]}
+          onPress={() => router.push('/profile')}
+          activeOpacity={0.8}
+        >
+          <SymbolView name="person.crop.circle.fill" size={26} tintColor={colors.accent} weight="medium" />
+        </TouchableOpacity>
+      </View>
+
+      {/* Stitch Filter Pills (Horizontal Scroll) */}
+      <View style={styles.filterBar}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}
+        >
+          {filterChips.map((chip) => {
+            const isActive = activeFilter === chip.id;
+            return (
+              <TouchableOpacity
+                key={chip.id}
+                style={[
+                  styles.filterChip,
+                  {
+                    backgroundColor: isActive
+                      ? colors.accent
+                      : colorScheme === 'dark'
+                      ? 'rgba(42, 42, 42, 0.85)'
+                      : 'rgba(235, 235, 235, 0.95)',
+                    borderColor: isActive
+                      ? colors.accent
+                      : colorScheme === 'dark'
+                      ? 'rgba(255, 255, 255, 0.10)'
+                      : 'rgba(0, 0, 0, 0.08)',
+                    borderWidth: 1,
+                    shadowColor: isActive ? colors.accent : '#000000',
+                    shadowOffset: { width: 0, height: isActive ? 3 : 1 },
+                    shadowOpacity: isActive ? 0.35 : 0.05,
+                    shadowRadius: isActive ? 8 : 2,
+                    elevation: isActive ? 4 : 1,
+                  },
+                ]}
+                onPress={() => setActiveFilter(chip.id)}
+                activeOpacity={0.8}
+              >
+                {chip.icon ? (
+                  <SymbolView
+                    name={chip.icon as any}
+                    size={12}
+                    tintColor={isActive ? '#FFFFFF' : colors.secondaryLabel}
+                    weight="bold"
+                  />
+                ) : null}
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    {
+                      color: isActive ? '#FFFFFF' : colors.label,
+                      fontWeight: isActive ? FontWeight.heavy : FontWeight.semibold,
+                    },
+                  ]}
+                >
+                  {chip.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {/* Vault Stats & View Mode Controls */}
+      <View style={styles.statsSummaryRow}>
+        <Text style={[styles.statsCount, { color: colors.secondaryLabel }]}>
+          {totalVaultCount} {totalVaultCount === 1 ? 'item' : 'items'} in your vault
+        </Text>
+
+        <View style={styles.viewControls}>
+          <TouchableOpacity
+            style={[
+              styles.viewToggleBtn,
+              {
+                backgroundColor:
+                  displayMode === 'reels'
+                    ? colors.secondaryBackground
+                    : 'transparent',
+                borderColor:
+                  displayMode === 'reels' ? colors.accent : 'transparent',
+                borderWidth: 1,
+              },
+            ]}
+            onPress={() => setDisplayMode('reels')}
+            activeOpacity={0.8}
+          >
+            <SymbolView
+              name="rectangle.stack.fill"
+              size={15}
+              tintColor={displayMode === 'reels' ? colors.accent : colors.secondaryLabel}
+              weight="semibold"
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.viewToggleBtn,
+              {
+                backgroundColor:
+                  displayMode === 'grid'
+                    ? colors.secondaryBackground
+                    : 'transparent',
+                borderColor:
+                  displayMode === 'grid' ? colors.accent : 'transparent',
+                borderWidth: 1,
+              },
+            ]}
+            onPress={() => setDisplayMode('grid')}
+            activeOpacity={0.8}
+          >
+            <SymbolView
+              name="square.grid.2x2.fill"
+              size={15}
+              tintColor={displayMode === 'grid' ? colors.accent : colors.secondaryLabel}
+              weight="semibold"
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.viewToggleBtn,
+              {
+                backgroundColor:
+                  displayMode === 'list'
+                    ? colors.secondaryBackground
+                    : 'transparent',
+                borderColor:
+                  displayMode === 'list' ? colors.accent : 'transparent',
+                borderWidth: 1,
+              },
+            ]}
+            onPress={() => setDisplayMode('list')}
+            activeOpacity={0.8}
+          >
+            <SymbolView
+              name="list.bullet"
+              size={15}
+              tintColor={displayMode === 'list' ? colors.accent : colors.secondaryLabel}
+              weight="semibold"
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Main Content Area */}
+      {totalVaultCount === 0 ? (
+        <EmptyState
+          title="Your Vault is Empty"
+          body="Save movies and shows here to build your personal cinematic library."
+          ctaLabel="Discover Movies"
+          iconName="film.stack"
+          onCtaPress={() => router.push('/')}
+        />
+      ) : activeFilter === 'all' && displayMode === 'reels' ? (
+        /* Categorized Reels View (Stitch Feature) */
+        <ScrollView
+          style={styles.reelsScroll}
+          contentContainerStyle={styles.reelsScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Watched Movies Reel */}
+          {watchedMovies.length > 0 && (
+            <View style={styles.reelSection}>
+              <RowHeader title="Movies Watched" onSeeAll={() => setActiveFilter('movies')} />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+              >
+                {watchedMovies.map((movie) => (
+                  <View key={movie.tmdb_id} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
+                    <PosterGridCell
+                      tmdbId={movie.tmdb_id}
+                      title={movie.title}
+                      posterPath={movie.poster_path}
+                      releaseYear={movie.release_year}
+                      rating={movie.my_rating}
+                      onPress={() => navigateToDetail(movie.tmdb_id)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Watchlist Reel */}
+          {watchlistMovies.length > 0 && (
+            <View style={styles.reelSection}>
+              <RowHeader title="Watchlist" onSeeAll={() => setActiveFilter('watchlist')} />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+              >
+                {watchlistMovies.map((movie) => (
+                  <View key={movie.tmdb_id} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
+                    <PosterGridCell
+                      tmdbId={movie.tmdb_id}
+                      title={movie.title}
+                      posterPath={movie.poster_path}
+                      releaseYear={movie.release_year}
+                      rating={movie.my_rating}
+                      onPress={() => navigateToDetail(movie.tmdb_id)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* All Saved Titles Reel if no specific sub-filters populated */}
+          {movies.length > 0 && watchedMovies.length === 0 && watchlistMovies.length === 0 && ratedMovies.length === 0 && (
+            <View style={styles.reelSection}>
+              <RowHeader title="Saved in Vault" onSeeAll={() => setDisplayMode('grid')} />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+              >
+                {movies.map((movie) => (
+                  <View key={movie.tmdb_id} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
+                    <PosterGridCell
+                      tmdbId={movie.tmdb_id}
+                      title={movie.title}
+                      posterPath={movie.poster_path}
+                      releaseYear={movie.release_year}
+                      rating={movie.my_rating}
+                      onPress={() => navigateToDetail(movie.tmdb_id)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Top Rated Reel */}
+          {ratedMovies.length > 0 && (
+            <View style={styles.reelSection}>
+              <RowHeader title="Your Top Ratings" onSeeAll={() => setActiveFilter('ratings')} />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+              >
+                {ratedMovies.map((movie) => (
+                  <View key={movie.tmdb_id} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
+                    <PosterGridCell
+                      tmdbId={movie.tmdb_id}
+                      title={movie.title}
+                      posterPath={movie.poster_path}
+                      releaseYear={movie.release_year}
+                      rating={movie.my_rating}
+                      onPress={() => navigateToDetail(movie.tmdb_id)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </ScrollView>
+      ) : displayMode === 'grid' || (activeFilter !== 'all' && displayMode === 'reels') ? (
+        /* Full Grid Mode */
+        <FlashList
+          data={
+            activeFilter === 'watchlist'
+              ? watchlistMovies
+              : activeFilter === 'ratings'
+              ? ratedMovies
+              : activeFilter === 'diary'
+              ? (diaryItems as any)
+              : watchedMovies.length > 0
+              ? watchedMovies
+              : movies
+          }
+          numColumns={3}
+          keyExtractor={(item: any) => String(item.tmdb_id ?? item.tmdbId)}
+          contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, paddingBottom: 130 }}
+          ItemSeparatorComponent={() => <View style={{ height: Spacing.xs }} />}
+          renderItem={({ item }: { item: any }) => (
+            <PosterGridCell
+              tmdbId={item.tmdb_id ?? item.tmdbId}
+              title={item.title}
+              posterPath={item.poster_path ?? item.posterPath}
+              releaseYear={item.release_year ?? item.releaseYear}
+              rating={item.my_rating ?? item.rating}
+              onPress={() => navigateToDetail(item.tmdb_id ?? item.tmdbId)}
+              style={{ marginHorizontal: Spacing.xs / 2 }}
+            />
+          )}
+        />
+      ) : (
+        /* List Mode */
+        <View style={styles.listContainer}>
+          <View
+            style={[
+              styles.insetGroupCard,
+              { backgroundColor: colors.secondaryBackground, ...colors.cardShadow },
+            ]}
+          >
+            <FlashList
+              data={
+                activeFilter === 'watchlist'
+                  ? watchlistMovies
+                  : activeFilter === 'ratings'
+                  ? ratedMovies
+                  : activeFilter === 'diary'
+                  ? (diaryItems as any)
+                  : watchedMovies.length > 0
+                  ? watchedMovies
+                  : movies
+              }
+              keyExtractor={(item: any) => String(item.tmdb_id ?? item.tmdbId)}
+              contentContainerStyle={{ paddingBottom: 130 }}
+              renderItem={({ item, index }: { item: any; index: number }) => (
+                <CompactLibraryRow
+                  title={item.title}
+                  posterPath={item.poster_path ?? item.posterPath}
+                  releaseYear={item.release_year ?? item.releaseYear}
+                  rating={item.my_rating ?? item.rating}
+                  watchedDate={item.watchedDate}
+                  onPress={() => navigateToDetail(item.tmdb_id ?? item.tmdbId)}
+                  isLast={index === movies.length - 1}
+                />
+              )}
+            />
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -343,32 +459,92 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.sm,
-    paddingBottom: Spacing.sm,
+    paddingTop: Spacing.xs,
+    paddingBottom: Spacing.xs,
+  },
+  headerBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.sm + 2,
+  },
+  brandLogo: {
+    width: 30,
+    height: 30,
+    borderRadius: Radius.small,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   largeTitle: {
-    fontSize: FontSize.largeTitle,
-    fontWeight: FontWeight.bold,
+    fontSize: FontSize.title2,
+    fontWeight: FontWeight.heavy,
+    letterSpacing: -0.5,
   },
-  toggleButton: {
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderRadius: 15,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  tabsContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    marginBottom: Spacing.xs,
-  },
-  tabButton: {
-    flex: 1,
+  profileAvatarButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1.5,
     alignItems: 'center',
-    paddingVertical: Spacing.sm,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    justifyContent: 'center',
   },
-  tabLabel: {
+  filterBar: {
+    paddingVertical: Spacing.xs,
+  },
+  filterScroll: {
+    paddingHorizontal: Spacing.md,
+    gap: Spacing.xs + 2,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 3,
+    borderRadius: Radius.pill,
+  },
+  filterChipText: {
     fontSize: FontSize.subheadline,
+    letterSpacing: -0.1,
+  },
+  statsSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.xs + 2,
+  },
+  statsCount: {
+    fontSize: FontSize.caption1,
+    fontWeight: FontWeight.semibold,
+  },
+  viewControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewToggleBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  reelsScroll: {
+    flex: 1,
+  },
+  reelsScrollContent: {
+    paddingBottom: 130,
+  },
+  reelSection: {
+    marginBottom: Spacing.md,
+  },
+  listContainer: {
+    paddingHorizontal: Spacing.md,
+  },
+  insetGroupCard: {
+    borderRadius: Radius.card,
+    overflow: 'hidden',
+    // @ts-ignore
+    borderCurve: 'continuous',
   },
 });

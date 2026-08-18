@@ -7,8 +7,17 @@ import {
   PanResponder,
   LayoutChangeEvent,
   Platform,
+  AccessibilityActionEvent,
 } from 'react-native';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { SymbolView } from 'expo-symbols';
 import { useTheme } from '@/context/ThemeContext';
 import { FontSize, FontWeight, Spacing } from '@/constants/tokens';
 
@@ -29,13 +38,76 @@ function clampRating(raw: number): number {
   return Math.max(MIN_RATING, Math.min(MAX_RATING, stepped));
 }
 
-/**
- * 0.5–5.0 star rating control in 0.5 increments.
- * Supports tapping a star and dragging left/right to adjust.
- * Fires a light haptic on each 0.5 step change.
- * Announces as "Rating, X of 5 stars, adjustable" for VoiceOver.
- */
-export function StarRatingControl({ value, onChange, size = 32, readOnly = false }: StarRatingControlProps) {
+function AnimatedStarItem({
+  index,
+  filled,
+  size,
+  readOnly,
+  onTap,
+  colors,
+}: {
+  index: number;
+  filled: number;
+  size: number;
+  readOnly: boolean;
+  onTap: (index: number, isHalf: boolean) => void;
+  colors: any;
+}) {
+  const starValue = index + 1;
+  const isFullFilled = filled >= starValue;
+  const isHalfFilled = !isFullFilled && filled >= starValue - 0.5;
+
+  const scale = useSharedValue(1);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
+  const handlePress = (isHalf: boolean) => {
+    scale.value = withSequence(
+      withTiming(1.35, { duration: 120 }),
+      withSpring(1.0, { damping: 10, stiffness: 200 })
+    );
+    onTap(index, isHalf);
+  };
+
+  return (
+    <Animated.View style={[styles.starContainer, { width: size, height: size }, animatedStyle]}>
+      {/* Half-star tap zone */}
+      {!readOnly && (
+        <TouchableOpacity
+          style={[styles.halfTap, { left: 0 }]}
+          onPress={() => handlePress(true)}
+          hitSlop={{ top: 8, bottom: 8 }}
+          activeOpacity={1}
+        />
+      )}
+      {/* Full-star tap zone */}
+      {!readOnly && (
+        <TouchableOpacity
+          style={[styles.halfTap, { right: 0 }]}
+          onPress={() => handlePress(false)}
+          hitSlop={{ top: 8, bottom: 8 }}
+          activeOpacity={1}
+        />
+      )}
+      {/* SF Symbol star glyph */}
+      <SymbolView
+        name={isFullFilled ? 'star.fill' : isHalfFilled ? 'star.leadinghalf.filled' : 'star'}
+        size={size}
+        tintColor={isFullFilled || isHalfFilled ? (colors.starGold ?? '#FFD60A') : colors.tertiaryLabel}
+        weight="medium"
+      />
+    </Animated.View>
+  );
+}
+
+export function StarRatingControl({
+  value,
+  onChange,
+  size = 32,
+  readOnly = false,
+}: StarRatingControlProps) {
   const { colors } = useTheme();
   const containerWidth = useRef<number>(0);
   const lastHapticValue = useRef<number | null>(null);
@@ -82,6 +154,15 @@ export function StarRatingControl({ value, onChange, size = 32, readOnly = false
     onChange(newVal);
   }
 
+  const handleAccessibilityAction = (event: AccessibilityActionEvent) => {
+    if (readOnly) return;
+    if (event.nativeEvent.actionName === 'increment') {
+      onChange(clampRating((value ?? 0) + STEP));
+    } else if (event.nativeEvent.actionName === 'decrement') {
+      onChange(clampRating((value ?? 0) - STEP));
+    }
+  };
+
   const filled = value ?? 0;
 
   return (
@@ -99,8 +180,11 @@ export function StarRatingControl({ value, onChange, size = 32, readOnly = false
         now: filled,
         text: filled > 0 ? `${filled} stars` : 'No rating',
       }}
-      onAccessibilityIncrement={() => onChange(clampRating((value ?? 0) + STEP))}
-      onAccessibilityDecrement={() => onChange(clampRating((value ?? 0) - STEP))}
+      accessibilityActions={[
+        { name: 'increment', label: 'Increment rating' },
+        { name: 'decrement', label: 'Decrement rating' },
+      ]}
+      onAccessibilityAction={handleAccessibilityAction}
     >
       {/* Drag hit area */}
       <View
@@ -108,52 +192,26 @@ export function StarRatingControl({ value, onChange, size = 32, readOnly = false
         onLayout={handleLayout}
         {...(!readOnly ? panResponder.panHandlers : {})}
       >
-        {Array.from({ length: STAR_COUNT }, (_, i) => {
-          const starValue = i + 1;
-          const isFullFilled = filled >= starValue;
-          const isHalfFilled = !isFullFilled && filled >= starValue - 0.5;
-
-          return (
-            <View key={i} style={styles.starContainer}>
-              {/* Half-star tap zone (left half) */}
-              {!readOnly && (
-                <TouchableOpacity
-                  style={[styles.halfTap, { left: 0 }]}
-                  onPress={() => handleStarTap(i, true)}
-                  hitSlop={{ top: 8, bottom: 8 }}
-                  activeOpacity={1}
-                />
-              )}
-              {/* Full-star tap zone (right half) */}
-              {!readOnly && (
-                <TouchableOpacity
-                  style={[styles.halfTap, { right: 0 }]}
-                  onPress={() => handleStarTap(i, false)}
-                  hitSlop={{ top: 8, bottom: 8 }}
-                  activeOpacity={1}
-                />
-              )}
-              {/* Star glyph — simple unicode star for now (expo-symbols in Phase 12) */}
-              <Text
-                style={[
-                  styles.star,
-                  {
-                    fontSize: size,
-                    color: isFullFilled || isHalfFilled ? colors.accent : colors.separator,
-                  },
-                ]}
-              >
-                {isFullFilled ? '★' : isHalfFilled ? '⯨' : '☆'}
-              </Text>
-            </View>
-          );
-        })}
+        {Array.from({ length: STAR_COUNT }, (_, i) => (
+          <AnimatedStarItem
+            key={i}
+            index={i}
+            filled={filled}
+            size={size}
+            readOnly={readOnly}
+            onTap={handleStarTap}
+            colors={colors}
+          />
+        ))}
       </View>
 
-      {/* Numeric display in SF Pro Rounded style */}
+      {/* Numeric display */}
       {value != null && (
         <Text
-          style={[styles.numericLabel, { color: colors.accent, fontFamily: Platform.OS === 'ios' ? 'ui-rounded' : undefined }]}
+          style={[
+            styles.numericLabel,
+            { color: colors.starGold ?? '#FFD60A', fontFamily: Platform.OS === 'ios' ? 'ui-rounded' : undefined },
+          ]}
         >
           {value.toFixed(1)}
         </Text>
@@ -170,7 +228,7 @@ const styles = StyleSheet.create({
   },
   starsRow: {
     flexDirection: 'row',
-    gap: 2,
+    gap: 6,
   },
   starContainer: {
     position: 'relative',
@@ -183,9 +241,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     width: '50%',
     zIndex: 1,
-  },
-  star: {
-    lineHeight: undefined,
   },
   numericLabel: {
     fontSize: FontSize.headline,

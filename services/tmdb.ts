@@ -6,6 +6,7 @@ export interface TmdbMovie {
   id: number;
   title: string;
   poster_path: string | null;
+  backdrop_path?: string | null;
   release_date: string; // 'YYYY-MM-DD'
   genre_ids: number[];
   genres?: TmdbGenre[];  // only present in movie detail calls

@@ -3,39 +3,37 @@ import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
   ViewStyle,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
-import { BlurView } from 'expo-blur';
 import { useTheme } from '@/context/ThemeContext';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/tokens';
 import { posterUrl } from '@/constants/tokens';
+import { AnimatedPressable } from '@/components/AnimatedPressable';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Card occupies ~80% of screen width; 3:2 poster ratio
-const CARD_WIDTH = Math.round(SCREEN_WIDTH * 0.55);
-const POSTER_HEIGHT = Math.round(CARD_WIDTH * 1.5);
+// Proportional card width (~44% of screen on mobile, allowing 2.2 cards visible per row)
+const CARD_WIDTH = Math.min(160, Math.round(SCREEN_WIDTH * 0.40));
 
 interface CardFeedItemProps {
   tmdbId: number;
   title: string;
   posterPath: string | null;
   releaseYear?: number | null;
-  genres?: string | null;  // JSON-encoded string e.g. '[{"id":28,"name":"Action"}]'
+  genres?: string | null;
   rating?: number | null;
-  /** Optional numbered badge (used in "Top 10 This Week" row) */
+  /** Optional numbered badge (e.g. 1-10 for Top 10 row) */
   badge?: number;
   onPress: () => void;
   style?: ViewStyle;
+  width?: number;
 }
 
 /**
- * Card Feed Item — the primary content unit on the Home screen.
- * Renders a poster image with a glassmorphic info card below it.
- * Used in horizontal FlashList rows.
+ * Card Feed Item — Apple TV / Letterboxd style floating poster card with Stitch spring animations.
  */
 export function CardFeedItem({
   title,
@@ -46,18 +44,19 @@ export function CardFeedItem({
   badge,
   onPress,
   style,
+  width = CARD_WIDTH,
 }: CardFeedItemProps) {
   const { colors, colorScheme } = useTheme();
   const imageUrl = posterUrl(posterPath, 'w342');
+  const height = Math.round(width * 1.5);
 
-  // Parse genre names from JSON string
   let genreNames: string[] = [];
   if (genres) {
     try {
       const parsed = JSON.parse(genres) as Array<{ id: number; name: string } | string>;
       genreNames = parsed.map((g) => (typeof g === 'string' ? g : g.name)).slice(0, 2);
     } catch {
-      // ignore malformed genre data
+      // ignore
     }
   }
 
@@ -67,71 +66,93 @@ export function CardFeedItem({
   if (rating) metaParts.push(`★ ${rating.toFixed(1)}`);
 
   return (
-    <TouchableOpacity
-      style={[styles.container, style]}
+    <AnimatedPressable
+      style={[styles.container, { width }, style]}
       onPress={onPress}
-      activeOpacity={0.85}
+      scaleTo={0.94}
       accessibilityRole="button"
       accessibilityLabel={`${title}${releaseYear ? `, ${releaseYear}` : ''}`}
     >
-      {/* Poster image */}
-      <View style={styles.posterWrapper}>
+      {/* Poster Image with Shadow & 1px Inner Stroke */}
+      <View
+        style={[
+          styles.posterWrapper,
+          {
+            width,
+            height,
+            backgroundColor: colors.secondaryBackground,
+            borderWidth: 1,
+            borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.10)' : 'rgba(0, 0, 0, 0.06)',
+            ...colors.cardShadow,
+          },
+        ]}
+      >
         {imageUrl ? (
           <Image
             source={{ uri: imageUrl }}
-            style={styles.poster}
+            style={StyleSheet.absoluteFill}
             contentFit="cover"
             transition={200}
           />
         ) : (
-          <View style={[styles.poster, styles.posterPlaceholder, { backgroundColor: colors.secondaryBackground }]}>
+          <View style={[StyleSheet.absoluteFill, styles.posterPlaceholder, { backgroundColor: colors.secondaryBackground }]}>
             <Text style={[styles.placeholderText, { color: colors.secondaryLabel }]} numberOfLines={3}>
               {title}
             </Text>
           </View>
         )}
 
-        {/* Top 10 numbered badge */}
+        {/* Apple TV-style frosted rank numeral for Top 10 */}
         {badge != null && (
-          <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-            <Text style={styles.badgeText}>{badge}</Text>
+          <View style={styles.rankContainer}>
+            <Text
+              style={[
+                styles.rankNumber,
+                {
+                  color: '#FFFFFF',
+                  textShadowColor: 'rgba(0, 0, 0, 0.8)',
+                  textShadowOffset: { width: 0, height: 2 },
+                  textShadowRadius: 6,
+                },
+              ]}
+            >
+              {badge}
+            </Text>
           </View>
         )}
       </View>
 
-      {/* Info card below poster */}
-      <BlurView
-        intensity={60}
-        tint={colorScheme === 'dark' ? 'dark' : 'light'}
-        style={[styles.infoCard, { borderColor: colors.separator }]}
-      >
-        <Text style={[styles.cardTitle, { color: colors.label }]} numberOfLines={1}>
+      {/* Typography underneath poster */}
+      <View style={styles.metaContainer}>
+        <Text
+          style={[
+            styles.cardTitle,
+            { color: colors.label },
+          ]}
+          numberOfLines={1}
+        >
           {title}
         </Text>
-        {metaParts.length > 0 && (
+        {metaParts.length > 0 ? (
           <Text style={[styles.metaLine, { color: colors.secondaryLabel }]} numberOfLines={1}>
             {metaParts.join(' · ')}
           </Text>
-        )}
-      </BlurView>
-    </TouchableOpacity>
+        ) : null}
+      </View>
+    </AnimatedPressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    width: CARD_WIDTH,
     marginRight: Spacing.sm,
   },
   posterWrapper: {
-    borderRadius: Radius.medium,
+    borderRadius: Radius.card,
     overflow: 'hidden',
-    // @ts-ignore — borderCurve is valid on iOS 13+
+    // @ts-ignore
     borderCurve: 'continuous',
-  },
-  poster: {
-    width: CARD_WIDTH,
-    height: POSTER_HEIGHT,
+    position: 'relative',
   },
   posterPlaceholder: {
     alignItems: 'center',
@@ -139,40 +160,35 @@ const styles = StyleSheet.create({
     padding: Spacing.sm,
   },
   placeholderText: {
-    fontSize: FontSize.caption,
+    fontSize: FontSize.caption1,
+    fontWeight: FontWeight.medium,
     textAlign: 'center',
   },
-  badge: {
+  rankContainer: {
     position: 'absolute',
-    top: Spacing.sm,
-    left: Spacing.sm,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
+    bottom: -6,
+    left: 6,
+    zIndex: 2,
   },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: FontSize.caption,
-    fontWeight: FontWeight.bold,
-    // SF Pro Rounded for badge numerals
-    fontFamily: 'ui-rounded',
+  rankNumber: {
+    fontSize: 48,
+    fontWeight: FontWeight.heavy,
+    fontFamily: Platform.OS === 'ios' ? 'ui-rounded' : undefined,
+    letterSpacing: -2,
+    lineHeight: 52,
   },
-  infoCard: {
-    marginTop: Spacing.xs,
-    borderRadius: Radius.small,
-    overflow: 'hidden',
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
-    borderWidth: StyleSheet.hairlineWidth,
+  metaContainer: {
+    marginTop: Spacing.xs + 2,
     gap: 2,
+    paddingHorizontal: 2,
   },
   cardTitle: {
     fontSize: FontSize.subheadline,
     fontWeight: FontWeight.semibold,
+    letterSpacing: -0.2,
   },
   metaLine: {
-    fontSize: FontSize.caption,
+    fontSize: FontSize.caption1,
+    fontWeight: FontWeight.regular,
   },
 });

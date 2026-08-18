@@ -19,10 +19,6 @@ interface PosterBackdropProps {
 /**
  * Full-bleed blurred poster backdrop ("Poster-Driven Glass").
  * Used on the Movie Detail page and Quick-Log sheet.
- *
- * Renders the poster scaled to fill the screen with a heavy BlurView overlay,
- * so the page background reads as belonging to that film visual world.
- * Falls back to opaque Canvas + default accent when no poster is available.
  */
 export function PosterBackdrop({
   posterPath,
@@ -34,7 +30,6 @@ export function PosterBackdrop({
   const imageUrl = posterUrl(posterPath, 'w780');
 
   if (!imageUrl) {
-    // Graceful fallback: plain canvas background
     return (
       <View style={[styles.container, { backgroundColor: colors.background }]}>
         {children}
@@ -44,7 +39,7 @@ export function PosterBackdrop({
 
   return (
     <View style={styles.container}>
-      {/* Layer 1: full-bleed poster image, slightly scaled so no hard edges */}
+      {/* Layer 1: full-bleed poster image */}
       <Image
         source={{ uri: imageUrl }}
         style={styles.backdropImage}
@@ -57,12 +52,12 @@ export function PosterBackdrop({
         tint={colorScheme === 'dark' ? 'dark' : 'light'}
         style={StyleSheet.absoluteFill}
       />
-      {/* Layer 3: a semi-transparent color wash from the dominant color */}
+      {/* Layer 3: optional subtle tint */}
       {dominantColor ? (
         <View
           style={[
             StyleSheet.absoluteFill,
-            { backgroundColor: dominantColor + '33' }, // 20% opacity tint
+            { backgroundColor: dominantColor + '25' },
           ]}
         />
       ) : null}
@@ -77,9 +72,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backdropImage: {
-    ...StyleSheet.absoluteFillObject,
+    position: 'absolute',
+    left: 0,
+    top: 0,
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
-    transform: [{ scale: 1.05 }], // slight overscan so no hard edges
+    transform: [{ scale: 1.08 }],
   },
 });

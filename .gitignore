@@ -44,3 +44,6 @@ yarn-error.*
 
 # local planning docs — not pushed to GitHub
 *.md
+
+# IDE tools
+.superpowers/
