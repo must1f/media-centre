@@ -71,10 +71,17 @@ export default function SearchScreen() {
       setLoading(true);
       setError(false);
       try {
-        const [movieResults, seriesResults] = await Promise.all([
+        const [movieSettled, seriesSettled] = await Promise.allSettled([
           searchMovies(query.trim()),
           searchSeries(query.trim()),
         ]);
+        if (movieSettled.status === 'rejected' && seriesSettled.status === 'rejected') {
+          throw movieSettled.reason;
+        }
+        const movieResults = movieSettled.status === 'fulfilled' ? movieSettled.value : [];
+        const seriesResults = seriesSettled.status === 'fulfilled' ? seriesSettled.value : [];
+        if (movieSettled.status === 'rejected') console.error(movieSettled.reason);
+        if (seriesSettled.status === 'rejected') console.error(seriesSettled.reason);
         const combined: SearchResult[] = [
           ...movieResults.map((m) => ({ ...m, mediaType: 'movie' as const })),
           ...seriesResults.map((s) => ({
