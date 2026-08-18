@@ -1,14 +1,22 @@
 import { setRating, type Movie } from '@/db/movies';
+import {
+  logWatch,
+  getLogEntriesForMedia,
+  getWatchCountForType,
+  hasWatched,
+} from '@/db/logEntries';
 
 // Mock client database singleton
 const mockRunSync = jest.fn();
 const mockGetFirstSync = jest.fn();
+const mockGetAllSync = jest.fn();
 
 jest.mock('@/db/client', () => ({
   __esModule: true,
   default: {
     runSync: (...args: any[]) => mockRunSync(...args),
     getFirstSync: (...args: any[]) => mockGetFirstSync(...args),
+    getAllSync: (...args: any[]) => mockGetAllSync(...args),
   },
 }));
 
@@ -97,5 +105,57 @@ describe('setRating overwrite guard', () => {
 
     expect(result).toBe(true);
     expect(mockRunSync).toHaveBeenCalled();
+  });
+});
+
+describe('logWatch', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('records the media_type alongside the watch', () => {
+    mockRunSync.mockReturnValue({ lastInsertRowId: 1 });
+    logWatch(1399, 'series', '2026-08-18', null);
+    expect(mockRunSync).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO LogEntry'),
+      [1399, 'series', '2026-08-18', null],
+    );
+  });
+});
+
+describe('getLogEntriesForMedia', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('scopes by media_type', () => {
+    mockGetAllSync.mockReturnValue([]);
+    getLogEntriesForMedia(1399, 'series');
+    expect(mockGetAllSync).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE movie_id = ? AND media_type = ?'),
+      [1399, 'series'],
+    );
+  });
+});
+
+describe('getWatchCountForType', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('counts entries of one media type', () => {
+    mockGetFirstSync.mockReturnValue({ count: 5 });
+    expect(getWatchCountForType('series')).toBe(5);
+    expect(mockGetFirstSync).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE media_type = ?'),
+      ['series'],
+    );
+  });
+});
+
+describe('hasWatched', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('scopes by media_type', () => {
+    mockGetFirstSync.mockReturnValue({ count: 0 });
+    hasWatched(1399, 'series');
+    expect(mockGetFirstSync).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE movie_id = ? AND media_type = ?'),
+      [1399, 'series'],
+    );
   });
 });

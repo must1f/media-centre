@@ -58,7 +58,7 @@ export function QuickLogSheet({
       reviewTrimmed !== '';
 
     const executeSave = () => {
-      logWatch(tmdbId, dateWatched);
+      logWatch(tmdbId, 'movie', dateWatched);
       setRating(tmdbId, rating, reviewTrimmed || null, true);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       onSave();
