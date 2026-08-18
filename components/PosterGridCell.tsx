@@ -12,6 +12,7 @@ interface PosterGridCellProps {
   posterPath: string | null;
   releaseYear?: number | null;
   rating?: number | null;
+  episodeTag?: string;
   onPress: () => void;
   style?: ViewStyle;
   /** Width of the cell — height is derived at 3:2 poster ratio */
@@ -23,6 +24,7 @@ export function PosterGridCell({
   posterPath,
   releaseYear,
   rating,
+  episodeTag,
   onPress,
   style,
   width = 110,
@@ -72,6 +74,11 @@ export function PosterGridCell({
             <Text style={styles.ratingText}>★ {rating.toFixed(1)}</Text>
           </View>
         )}
+        {episodeTag ? (
+          <View style={styles.episodeTagBadge}>
+            <Text style={styles.episodeTagText}>{episodeTag}</Text>
+          </View>
+        ) : null}
       </View>
       <View style={styles.textContainer}>
         <Text style={[styles.title, { color: colors.label }]} numberOfLines={1}>
@@ -117,6 +124,20 @@ const styles = StyleSheet.create({
   },
   ratingText: {
     color: '#FFD60A',
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
+  },
+  episodeTagBadge: {
+    position: 'absolute',
+    top: Spacing.xs,
+    left: Spacing.xs,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.small,
+  },
+  episodeTagText: {
+    color: '#FFFFFF',
     fontSize: 10,
     fontWeight: FontWeight.bold,
   },

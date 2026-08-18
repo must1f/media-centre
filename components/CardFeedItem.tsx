@@ -27,6 +27,8 @@ interface CardFeedItemProps {
   rating?: number | null;
   /** Optional numbered badge (e.g. 1-10 for Top 10 row) */
   badge?: number;
+  /** Optional episode tag badge (e.g. "S3E12") shown opposite the rank badge */
+  episodeTag?: string;
   onPress: () => void;
   style?: ViewStyle;
   width?: number;
@@ -42,6 +44,7 @@ export function CardFeedItem({
   genres,
   rating,
   badge,
+  episodeTag,
   onPress,
   style,
   width = CARD_WIDTH,
@@ -120,6 +123,13 @@ export function CardFeedItem({
             </Text>
           </View>
         )}
+
+        {/* Episode tag badge (e.g. "S3E12") — opposite corner from the rank badge */}
+        {episodeTag ? (
+          <View style={styles.episodeTagBadge}>
+            <Text style={styles.episodeTagText}>{episodeTag}</Text>
+          </View>
+        ) : null}
       </View>
 
       {/* Typography underneath poster */}
@@ -176,6 +186,20 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'ui-rounded' : undefined,
     letterSpacing: -2,
     lineHeight: 52,
+  },
+  episodeTagBadge: {
+    position: 'absolute',
+    top: Spacing.xs,
+    right: Spacing.xs,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.small,
+  },
+  episodeTagText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
   },
   metaContainer: {
     marginTop: Spacing.xs + 2,
