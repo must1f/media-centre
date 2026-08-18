@@ -1,6 +1,6 @@
 import db from './client';
 
-export type MediaType = 'movie' | 'series';
+export type MediaType = 'movie' | 'series' | 'anime';
 
 /** Add an item to the watchlist. Safe to call if already present (ignored). */
 export function addToWatchlist(mediaId: number, mediaType: MediaType): void {

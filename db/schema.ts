@@ -67,6 +67,35 @@ export function initDatabase(): void {
       UNIQUE(season_id, episode_number)
     );
 
+    -- Local cache of AniList metadata + user's rating/review (one per anime)
+    CREATE TABLE IF NOT EXISTS Anime (
+      anilist_id        INTEGER PRIMARY KEY,
+      title             TEXT    NOT NULL,
+      poster_path       TEXT,
+      dominant_color    TEXT,
+      start_year        INTEGER,
+      genres            TEXT,
+      overview          TEXT,
+      status            TEXT,
+      episode_count     INTEGER,
+      my_rating         REAL,
+      my_review         TEXT,
+      rating_updated_at TEXT
+    );
+
+    -- One row per episode; watched state lives here. Flat (no season tier —
+    -- AniList models anime as a single continuous episode list).
+    CREATE TABLE IF NOT EXISTS AnimeEpisode (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      anime_id        INTEGER NOT NULL REFERENCES Anime(anilist_id) ON DELETE CASCADE,
+      episode_number  INTEGER NOT NULL,
+      title           TEXT,
+      thumbnail       TEXT,
+      watched         INTEGER NOT NULL DEFAULT 0,
+      watched_at      TEXT,
+      UNIQUE(anime_id, episode_number)
+    );
+
     -- Diary: one row per watch (rewatches accumulate)
     CREATE TABLE IF NOT EXISTS LogEntry (
       id           INTEGER PRIMARY KEY AUTOINCREMENT,

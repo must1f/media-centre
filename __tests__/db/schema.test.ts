@@ -28,6 +28,15 @@ describe('initDatabase', () => {
     expect(sql).toContain('CREATE TABLE IF NOT EXISTS Episode');
   });
 
+  it('creates the Anime and AnimeEpisode tables', () => {
+    initDatabase();
+    const sql = mockExecSync.mock.calls[0][0];
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS Anime');
+    expect(sql).toContain('CREATE TABLE IF NOT EXISTS AnimeEpisode');
+    expect(sql).toContain('anilist_id        INTEGER PRIMARY KEY');
+    expect(sql).toContain('anime_id        INTEGER NOT NULL REFERENCES Anime(anilist_id) ON DELETE CASCADE');
+  });
+
   it('adds a media_type column to LogEntry only (WatchlistItem/Liked declare it inline)', () => {
     initDatabase();
     const alterCalls = mockExecSync.mock.calls.slice(1).map((c) => c[0]);
