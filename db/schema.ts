@@ -104,6 +104,35 @@ export function initDatabase(): void {
   // LogEntry has no uniqueness constraint on movie_id, so it still needs the
   // retrofit for pre-existing databases.
   addColumnIfMissing('LogEntry', 'media_type', "TEXT NOT NULL DEFAULT 'movie'");
+
+  // WatchlistItem/Liked gained media_type as part of their PRIMARY KEY, which
+  // SQLite cannot ADD COLUMN onto an existing table. On a pre-existing
+  // database (old shape: movie_id INTEGER PRIMARY KEY, no media_type column)
+  // rebuild the table instead. No-op if the table doesn't exist yet (fresh
+  // install — CREATE TABLE IF NOT EXISTS above already made the new shape)
+  // or already has media_type (already migrated).
+  migrateCompositeKeyTable(
+    'WatchlistItem',
+    `CREATE TABLE WatchlistItem_new (
+      movie_id   INTEGER NOT NULL,
+      media_type TEXT    NOT NULL DEFAULT 'movie',
+      added_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (movie_id, media_type)
+    );`,
+    `INSERT INTO WatchlistItem_new (movie_id, media_type, added_at)
+     SELECT movie_id, 'movie', added_at FROM WatchlistItem;`,
+  );
+  migrateCompositeKeyTable(
+    'Liked',
+    `CREATE TABLE Liked_new (
+      movie_id   INTEGER NOT NULL,
+      media_type TEXT    NOT NULL DEFAULT 'movie',
+      liked_at   TEXT    NOT NULL DEFAULT (datetime('now')),
+      PRIMARY KEY (movie_id, media_type)
+    );`,
+    `INSERT INTO Liked_new (movie_id, media_type, liked_at)
+     SELECT movie_id, 'movie', liked_at FROM Liked;`,
+  );
 }
 
 function addColumnIfMissing(table: string, column: string, type: string): void {
@@ -112,4 +141,32 @@ function addColumnIfMissing(table: string, column: string, type: string): void {
   } catch {
     // Column already exists — ignore.
   }
+}
+
+/**
+ * Rebuilds `table` into `table_new` (created fresh with the correct shape by
+ * `createNewTableSql`, populated by `copyRowsSql`) if — and only if — `table`
+ * currently exists with the OLD pre-media_type shape. Safe no-op otherwise
+ * (table doesn't exist yet, or already has media_type).
+ */
+function migrateCompositeKeyTable(table: string, createNewTableSql: string, copyRowsSql: string): void {
+  const columns = db.getAllSync<{ name: string }>(`PRAGMA table_info(${table});`);
+  if (columns.length === 0) {
+    // Table doesn't exist yet — CREATE TABLE IF NOT EXISTS above will have
+    // created it fresh with the correct shape (or it hasn't run for some
+    // other reason, in which case there's nothing to migrate).
+    return;
+  }
+  const hasMediaType = columns.some((c) => c.name === 'media_type');
+  if (hasMediaType) {
+    // Already the new shape (created fresh, or previously migrated).
+    return;
+  }
+
+  db.execSync(`
+    ${createNewTableSql}
+    ${copyRowsSql}
+    DROP TABLE ${table};
+    ALTER TABLE ${table}_new RENAME TO ${table};
+  `);
 }
