@@ -135,6 +135,12 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="anime"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         listeners={{
           tabPress: () => {
