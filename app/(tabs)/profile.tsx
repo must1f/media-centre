@@ -31,6 +31,7 @@ export default function ProfileScreen() {
   const [movies, setMovies] = useState<Movie[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [watchlistIds, setWatchlistIds] = useState<number[]>([]);
+  const [watchlistSeriesIds, setWatchlistSeriesIds] = useState<number[]>([]);
   const [showAppearanceModal, setShowAppearanceModal] = useState(false);
 
   useFocusEffect(
@@ -38,6 +39,7 @@ export default function ProfileScreen() {
       setMovies(getAllCachedMovies());
       setLogEntries(getAllLogEntries());
       setWatchlistIds(getWatchlistIds('movie'));
+      setWatchlistSeriesIds(getWatchlistIds('series'));
     }, [])
   );
 
@@ -47,7 +49,8 @@ export default function ProfileScreen() {
   const uniqueWatched = uniqueWatchedSet.size > 0 ? uniqueWatchedSet.size : 89;
   const diaryCount = logEntries.length > 0 ? logEntries.length : 152;
   const hoursCount = logEntries.length > 0 ? (logEntries.length * 1.8).toFixed(1) + 'h' : '1.2k';
-  const watchlistCount = watchlistIds.length > 0 ? watchlistIds.length : 89;
+  const totalWatchlistCount = watchlistIds.length + watchlistSeriesIds.length;
+  const watchlistCount = totalWatchlistCount > 0 ? totalWatchlistCount : 89;
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>

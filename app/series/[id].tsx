@@ -23,7 +23,7 @@ import { upsertSeason, getSeasonsForSeries } from '@/db/seasons';
 import { upsertEpisode, getEpisodesForSeason, setEpisodeWatched, type Episode } from '@/db/episodes';
 import { isLiked, toggleLike } from '@/db/likes';
 import { isOnWatchlist, toggleWatchlist } from '@/db/watchlist';
-import { logWatch, getLogEntriesForMedia, type LogEntry } from '@/db/logEntries';
+import { logWatch, getLogEntriesForMedia, deleteLogEntry, type LogEntry } from '@/db/logEntries';
 
 export default function SeriesDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -118,10 +118,22 @@ export default function SeriesDetailScreen() {
   function handleToggleEpisodeWatched(episode: Episode) {
     const nowWatched = !episode.watched;
     setEpisodeWatched(episode.id, nowWatched);
+    const today = new Date().toISOString().slice(0, 10);
     if (nowWatched) {
-      logWatch(tmdbId, 'series', new Date().toISOString().slice(0, 10));
-      setLogEntries(getLogEntriesForMedia(tmdbId, 'series'));
+      logWatch(tmdbId, 'series', today);
+    } else {
+      // Remove the diary entry this episode's watch created. There's no
+      // per-episode log id threaded through state, so fall back to deleting
+      // the most recent entry dated today for this series (entries are
+      // ordered watched_date DESC, created_at DESC).
+      const todaysEntry = getLogEntriesForMedia(tmdbId, 'series').find(
+        (entry) => entry.watched_date === today,
+      );
+      if (todaysEntry) {
+        deleteLogEntry(todaysEntry.id);
+      }
     }
+    setLogEntries(getLogEntriesForMedia(tmdbId, 'series'));
     setEpisodes(getEpisodesForSeason(episode.season_id));
   }
 

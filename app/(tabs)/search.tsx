@@ -334,7 +334,7 @@ export default function SearchScreen() {
             <FlashList
               data={results}
               numColumns={3}
-              keyExtractor={(item) => String(item.id)}
+              keyExtractor={(item) => `${item.mediaType}-${item.id}`}
               contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, paddingBottom: 130 }}
               ItemSeparatorComponent={() => <View style={{ height: Spacing.xs }} />}
               renderItem={({ item }) => (
