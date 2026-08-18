@@ -244,16 +244,13 @@ export async function importLetterboxdData(
 
   const searchCache = new Map<string, number | null>();
   const resolvedIds = new Map<string, number | null>();
-  const unmatched: { title: string; year: number | null }[] = [];
 
   const entries = Array.from(uniqueTitles.entries());
   let processed = 0;
   for (const [key, { name, year }] of entries) {
     const tmdbId = await resolveTitleToTmdbId(name, year, searchCache);
     resolvedIds.set(key, tmdbId);
-    if (tmdbId == null) {
-      unmatched.push({ title: name, year });
-    } else {
+    if (tmdbId != null) {
       upsertMovie({
         tmdb_id: tmdbId,
         title: name,
@@ -268,11 +265,43 @@ export async function importLetterboxdData(
     onProgress?.(processed, entries.length);
   }
 
+  // The same film can appear with a blank/differing Year across diary.csv and
+  // ratings.csv (e.g. "Heat"/1995 in one file, "Heat"/"" in the other), which
+  // produces two distinct title+year keys for one movie. Collapse the
+  // matched/unmatched summary — and row lookups — onto the film's title so a
+  // title that resolved under any of its year variants isn't double-counted
+  // or reported as unmatched.
+  const normalizedTitle = (name: string) => name.trim().toLowerCase();
+  const titleToId = new Map<string, number>();
+  for (const [key, id] of resolvedIds.entries()) {
+    if (id == null) continue;
+    const title = normalizedTitle(uniqueTitles.get(key)!.name);
+    if (!titleToId.has(title)) titleToId.set(title, id);
+  }
+
+  function lookupTmdbId(name: string, year: number | null): number | null {
+    const direct = resolvedIds.get(titleKey(name, year));
+    if (direct != null) return direct;
+    return titleToId.get(normalizedTitle(name)) ?? null;
+  }
+
+  const distinctTitles = new Map<string, { name: string; year: number | null }>();
+  for (const { name, year } of uniqueTitles.values()) {
+    const t = normalizedTitle(name);
+    if (!distinctTitles.has(t)) distinctTitles.set(t, { name, year });
+  }
+  const unmatched: { title: string; year: number | null }[] = [];
+  let matched = 0;
+  for (const [t, { name, year }] of distinctTitles.entries()) {
+    if (titleToId.has(t)) matched += 1;
+    else unmatched.push({ title: name, year });
+  }
+
   // Diary rows -> log entries (dedupe against what's already logged + within batch).
   let logEntriesImported = 0;
   const seenWatch = new Set<string>();
   for (const r of diaryRows) {
-    const tmdbId = resolvedIds.get(titleKey(r.name, r.year));
+    const tmdbId = lookupTmdbId(r.name, r.year);
     if (tmdbId == null) continue;
     const watchedDate = r.watchedDate || r.date;
     if (!watchedDate) continue;
@@ -286,26 +315,26 @@ export async function importLetterboxdData(
   }
 
   // Ratings: prefer ratings.csv, fall back to a diary row's own Rating column.
-  const ratingByKey = new Map<string, number>();
+  const ratingByTitle = new Map<string, number>();
   for (const r of ratingRows) {
-    if (r.rating != null) ratingByKey.set(titleKey(r.name, r.year), r.rating);
+    if (r.rating != null) ratingByTitle.set(normalizedTitle(r.name), r.rating);
   }
   for (const r of diaryRows) {
-    const key = titleKey(r.name, r.year);
-    if (r.rating != null && !ratingByKey.has(key)) ratingByKey.set(key, r.rating);
+    const t = normalizedTitle(r.name);
+    if (r.rating != null && !ratingByTitle.has(t)) ratingByTitle.set(t, r.rating);
   }
 
   let ratingsImported = 0;
-  for (const [key, rating] of ratingByKey.entries()) {
-    const tmdbId = resolvedIds.get(key);
+  for (const [t, rating] of ratingByTitle.entries()) {
+    const tmdbId = titleToId.get(t);
     if (tmdbId == null) continue;
     setRating(tmdbId, rating, null, true);
     ratingsImported += 1;
   }
 
   return {
-    totalUniqueTitles: entries.length,
-    matched: entries.length - unmatched.length,
+    totalUniqueTitles: distinctTitles.size,
+    matched,
     unmatched,
     logEntriesImported,
     ratingsImported,

@@ -263,6 +263,25 @@ describe('importLetterboxdData', () => {
     expect(mockLogWatch).not.toHaveBeenCalled();
   });
 
+  it('collapses the same title with a blank/differing Year across files into one entry', async () => {
+    // diary.csv has "Heat"/1995, ratings.csv has "Heat" with a blank Year —
+    // both must resolve to the same title, not double-count or show as unmatched.
+    mockSearchMovies.mockResolvedValue([{ id: 100, release_date: '1995-01-01' }]);
+
+    const diaryCsv =
+      'Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date\n' +
+      '2026-01-05,Heat,1995,https://x/heat/,,No,,2026-01-01';
+    const ratingsCsv = 'Date,Name,Year,Letterboxd URI,Rating\n2026-01-05,Heat,,https://x/heat/,4.5';
+
+    const summary = await importLetterboxdData(diaryCsv, ratingsCsv);
+
+    expect(summary.totalUniqueTitles).toBe(1);
+    expect(summary.matched).toBe(1);
+    expect(summary.unmatched).toEqual([]);
+    expect(mockSetRating).toHaveBeenCalledWith(100, 4.5, null, true);
+    expect(mockLogWatch).toHaveBeenCalledWith(100, '2026-01-01');
+  });
+
   it('falls back to the diary row Rating when ratings.csv has no entry for that title', async () => {
     mockSearchMovies.mockResolvedValue([{ id: 300, release_date: '2010-01-01' }]);
     const diaryCsv =
