@@ -1,7 +1,7 @@
 // ─── Types ────────────────────────────────────────────────────────────
 
 export interface AniListTitle {
-  romaji: string;
+  romaji: string | null;
   english: string | null;
 }
 
@@ -14,7 +14,7 @@ export interface AniListMedia {
   description: string | null;
   averageScore: number | null; // 0-100
   episodes: number | null;
-  status: string; // FINISHED | RELEASING | NOT_YET_RELEASED | CANCELLED | HIATUS
+  status: string | null; // FINISHED | RELEASING | NOT_YET_RELEASED | CANCELLED | HIATUS
 }
 
 export interface AniListCharacterEdge {
@@ -162,7 +162,7 @@ export function getSimilarAnime(detail: AniListMediaDetail): AniListRelationNode
 
 /** Prefer the English title, fall back to romaji. */
 export function animeTitle(title: AniListTitle): string {
-  return title.english ?? title.romaji;
+  return title.english ?? title.romaji ?? 'Untitled';
 }
 
 /** Extract the start year. */
@@ -173,6 +173,6 @@ export function startYear(media: Pick<AniListMedia, 'startDate'>): number | null
 /** Strip HTML tags AniList sometimes leaves in `description` (e.g. `<br>`). */
 export function cleanDescription(text: string | null | undefined): string | null {
   if (!text) return null;
-  const stripped = text.replace(/<[^>]+>/g, '').trim();
+  const stripped = text.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
   return stripped || null;
 }

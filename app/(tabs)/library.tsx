@@ -105,6 +105,32 @@ export default function VaultScreen() {
   ];
 
   const diaryItemsBase = logEntries.map((log) => {
+    if (log.media_type === 'series') {
+      const show = series.find((s) => s.tmdb_id === log.movie_id);
+      return {
+        logId: log.id,
+        tmdbId: log.movie_id,
+        title: show?.name ?? 'Unknown Series',
+        posterPath: show?.poster_path ?? null,
+        releaseYear: show?.first_air_year ?? null,
+        rating: show?.my_rating ?? null,
+        genre: primaryGenreName(show?.genres ?? null),
+        watchedDate: log.watched_date,
+      };
+    }
+    if (log.media_type === 'anime') {
+      const show = anime.find((a) => a.anilist_id === log.movie_id);
+      return {
+        logId: log.id,
+        tmdbId: log.movie_id,
+        title: show?.title ?? 'Unknown Anime',
+        posterPath: show?.poster_path ?? null,
+        releaseYear: show?.start_year ?? null,
+        rating: show?.my_rating ?? null,
+        genre: primaryGenreName(show?.genres ?? null),
+        watchedDate: log.watched_date,
+      };
+    }
     const movie = movies.find((m) => m.tmdb_id === log.movie_id);
     return {
       logId: log.id,

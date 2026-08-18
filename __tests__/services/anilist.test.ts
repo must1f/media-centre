@@ -110,7 +110,7 @@ describe('startYear', () => {
 
 describe('cleanDescription', () => {
   it('strips HTML tags', () => {
-    expect(cleanDescription('A pirate<br>adventure.')).toBe('A pirateadventure.');
+    expect(cleanDescription('A pirate<br>adventure.')).toBe('A pirate\nadventure.');
   });
 
   it('returns null for null/empty input', () => {
