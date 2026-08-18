@@ -15,7 +15,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
-import { FontWeight, Radius, Spacing, backdropUrl, posterUrl } from '@/constants/tokens';
+import { Radius, Spacing, backdropUrl, posterUrl } from '@/constants/tokens';
 import { StarRatingControl } from '@/components/StarRatingControl';
 import { logWatch, getLogEntriesForMedia, type LogEntry } from '@/db/logEntries';
 import { getMovie, setRating } from '@/db/movies';
@@ -36,22 +36,24 @@ export interface QuickLogSheetProps {
   onDismiss: () => void;
 }
 
-/** Fixed cinematic dark palette — this screen always renders dark, matching the Stitch design. */
+/** Fixed cinematic dark palette — matches Stitch design system */
 const CINEMA = {
   background: '#131313',
   surfaceContainer: '#201F1F',
-  surfaceContainerLow: 'rgba(28, 27, 27, 0.75)',
+  surfaceContainerLow: 'rgba(28, 27, 27, 0.65)',
   surfaceContainerHigh: 'rgba(42, 42, 42, 0.6)',
+  surfaceContainerHighest: '#353534',
   onSurface: '#E5E2E1',
   onSurfaceVariant: '#E9BCB6',
-  onSurfaceVariantDim: 'rgba(233, 188, 182, 0.5)',
-  onSurfaceDim: 'rgba(229, 226, 225, 0.7)',
+  onSurfaceVariantDim: 'rgba(233, 188, 182, 0.6)',
+  onSurfaceDim: 'rgba(229, 226, 225, 0.75)',
   primary: '#FFB4AA',
   primaryDim: 'rgba(255, 180, 170, 0.6)',
-  primaryTint: 'rgba(255, 180, 170, 0.1)',
+  primaryTint: 'rgba(255, 180, 170, 0.12)',
   onPrimary: '#690003',
-  starEmpty: '#8A8886',
-  divider: 'rgba(255, 255, 255, 0.08)',
+  primaryContainer: '#E50914',
+  starEmpty: '#474747',
+  glassBorder: 'rgba(255, 255, 255, 0.08)',
 };
 
 const ORDINAL_WORDS = ['First Watch', '2nd Rewatch', '3rd Rewatch', '4th Rewatch', '5th Rewatch'];
@@ -97,7 +99,6 @@ export function QuickLogSheet({
 
   function handleRatingChange(value: number) {
     setRatingValue(value);
-    // Preserve whatever review text was last posted — never leak an unsaved draft.
     const currentReview = getMovie(tmdbId)?.my_review ?? null;
     setRating(tmdbId, value, currentReview, true);
     onChange();
@@ -140,17 +141,21 @@ export function QuickLogSheet({
 
   return (
     <View style={styles.root}>
+      {/* Ambient background glows */}
+      <View style={styles.ambientGlowTop} pointerEvents="none" />
+      <View style={styles.ambientGlowBottom} pointerEvents="none" />
+
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
         >
-          {/* Header */}
+          {/* Top Glass Header */}
           <View style={styles.header}>
             <TouchableOpacity
               onPress={onDismiss}
               style={styles.headerButton}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityRole="button"
               accessibilityLabel="Back"
             >
@@ -177,13 +182,13 @@ export function QuickLogSheet({
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: CINEMA.surfaceContainer }]} />
               )}
               <LinearGradient
-                colors={['transparent', CINEMA.background]}
-                locations={[0, 0.92]}
+                colors={['transparent', 'rgba(19, 19, 19, 0.65)', CINEMA.background]}
+                locations={[0, 0.65, 1.0]}
                 style={StyleSheet.absoluteFill}
               />
               <View style={styles.heroContent}>
                 <View style={styles.titleRow}>
-                  <View style={{ flex: 1 }}>
+                  <View style={{ flex: 1, paddingRight: Spacing.sm }}>
                     <View style={styles.tagRow}>
                       {genreLabel ? (
                         <View style={styles.genrePill}>
@@ -199,7 +204,10 @@ export function QuickLogSheet({
 
                   <TouchableOpacity
                     onPress={handleFavoriteToggle}
-                    style={styles.favoriteButton}
+                    style={[
+                      styles.favoriteButton,
+                      liked && styles.favoriteButtonActive,
+                    ]}
                     accessibilityRole="button"
                     accessibilityLabel={liked ? 'Unfavorite' : 'Favorite'}
                     accessibilityState={{ selected: liked }}
@@ -216,13 +224,13 @@ export function QuickLogSheet({
             </View>
 
             <View style={styles.content}>
-              {/* Rating */}
+              {/* Rating Section */}
               <View style={styles.ratingCard}>
                 <Text style={styles.ratingLabel}>Your Rating</Text>
                 <StarRatingControl
                   value={rating}
                   onChange={handleRatingChange}
-                  size={36}
+                  size={40}
                   color={CINEMA.primary}
                   emptyColor={CINEMA.starEmpty}
                 />
@@ -259,7 +267,7 @@ export function QuickLogSheet({
                     onPress={() => setAddingEntry((v) => !v)}
                     activeOpacity={0.85}
                   >
-                    <SymbolView name="plus" size={13} tintColor={CINEMA.primary} weight="bold" />
+                    <SymbolView name="plus" size={14} tintColor={CINEMA.primary} weight="bold" />
                     <Text style={styles.newEntryButtonText}>New Entry</Text>
                   </TouchableOpacity>
                 </View>
@@ -316,7 +324,7 @@ export function QuickLogSheet({
                             <Text style={styles.diaryEntryDate}>{formatDiaryDate(entry.watched_date)}</Text>
                           </View>
                           {entry.note ? (
-                            <Text style={styles.diaryEntryNote} numberOfLines={2}>
+                            <Text style={styles.diaryEntryNote} numberOfLines={3}>
                               {entry.note}
                             </Text>
                           ) : null}
@@ -338,6 +346,25 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: CINEMA.background,
+    overflow: 'hidden',
+  },
+  ambientGlowTop: {
+    position: 'absolute',
+    top: -80,
+    left: -80,
+    width: 320,
+    height: 320,
+    borderRadius: 160,
+    backgroundColor: 'rgba(255, 180, 170, 0.12)',
+  },
+  ambientGlowBottom: {
+    position: 'absolute',
+    bottom: 80,
+    right: -80,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(0, 114, 215, 0.08)',
   },
   safeArea: {
     flex: 1,
@@ -351,33 +378,37 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     paddingHorizontal: Spacing.md,
     paddingVertical: Spacing.sm,
+    backgroundColor: 'rgba(19, 19, 19, 0.75)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: CINEMA.glassBorder,
+    zIndex: 10,
   },
   headerButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     flex: 1,
     fontSize: 20,
-    fontWeight: FontWeight.semibold,
+    fontWeight: '600',
     color: CINEMA.onSurface,
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
   },
   avatarBadge: {
     width: 32,
     height: 32,
-    borderRadius: Radius.pill,
+    borderRadius: 16,
     backgroundColor: CINEMA.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
   scrollContent: {
-    paddingBottom: 48,
+    paddingBottom: 80,
   },
   hero: {
-    height: 300,
+    height: 350,
     width: '100%',
     overflow: 'hidden',
   },
@@ -391,62 +422,79 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: Spacing.sm,
+    justifyContent: 'space-between',
   },
   tagRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.sm,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   genrePill: {
-    paddingHorizontal: Spacing.sm,
+    paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: Radius.pill,
-    backgroundColor: 'rgba(53, 53, 52, 0.8)',
+    backgroundColor: CINEMA.surfaceContainerHighest,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.06)',
   },
   genrePillText: {
     fontSize: 10,
-    fontWeight: FontWeight.semibold,
+    fontWeight: '600',
     letterSpacing: 0.8,
     color: CINEMA.onSurfaceVariant,
   },
   yearText: {
     fontSize: 11,
-    fontWeight: FontWeight.medium,
+    fontWeight: '500',
     color: CINEMA.onSurfaceVariant,
   },
   titleText: {
-    fontSize: 32,
-    fontWeight: FontWeight.heavy,
+    fontSize: 30,
+    fontWeight: '800',
     letterSpacing: -0.5,
     lineHeight: 36,
     color: CINEMA.onSurface,
+    textShadowColor: 'rgba(0, 0, 0, 0.6)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   favoriteButton: {
     width: 48,
     height: 48,
-    borderRadius: Radius.pill,
+    borderRadius: 24,
     backgroundColor: 'rgba(32, 31, 31, 0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.10)',
     alignItems: 'center',
     justifyContent: 'center',
   },
+  favoriteButtonActive: {
+    borderColor: 'rgba(255, 180, 170, 0.5)',
+    shadowColor: CINEMA.primary,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.45,
+    shadowRadius: 12,
+  },
   content: {
     paddingHorizontal: Spacing.md,
-    paddingTop: Spacing.lg,
-    gap: Spacing.xl,
+    paddingTop: Spacing.md,
+    gap: Spacing.lg,
   },
   ratingCard: {
     alignItems: 'center',
     gap: Spacing.sm,
-    paddingVertical: Spacing.md,
-    borderRadius: Radius.large,
+    paddingVertical: Spacing.lg,
+    paddingHorizontal: Spacing.md,
+    borderRadius: 16,
     backgroundColor: CINEMA.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: CINEMA.glassBorder,
   },
   ratingLabel: {
     fontSize: 12,
-    fontWeight: FontWeight.semibold,
-    letterSpacing: 1,
+    fontWeight: '600',
+    letterSpacing: 1.2,
     textTransform: 'uppercase',
     color: CINEMA.onSurfaceVariant,
   },
@@ -455,19 +503,21 @@ const styles = StyleSheet.create({
   },
   sectionHeading: {
     fontSize: 22,
-    fontWeight: FontWeight.semibold,
-    letterSpacing: -0.2,
+    fontWeight: '600',
+    letterSpacing: -0.3,
     color: CINEMA.onSurface,
   },
   reviewCard: {
-    borderRadius: Radius.large,
-    backgroundColor: CINEMA.surfaceContainerHigh,
+    borderRadius: 16,
+    backgroundColor: 'rgba(32, 31, 31, 0.5)',
+    borderWidth: 1,
+    borderColor: CINEMA.glassBorder,
     overflow: 'hidden',
   },
   reviewInput: {
-    minHeight: 110,
+    minHeight: 120,
     padding: Spacing.md,
-    fontSize: 17,
+    fontSize: 16,
     lineHeight: 24,
     color: CINEMA.onSurface,
   },
@@ -476,9 +526,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.sm + 2,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: CINEMA.divider,
+    borderTopColor: CINEMA.glassBorder,
   },
   visibleText: {
     fontSize: 11,
@@ -486,13 +536,18 @@ const styles = StyleSheet.create({
   },
   postButton: {
     paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.xs + 2,
+    paddingVertical: 8,
     borderRadius: Radius.pill,
     backgroundColor: CINEMA.primary,
+    shadowColor: CINEMA.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 3,
   },
   postButtonText: {
     fontSize: 14,
-    fontWeight: FontWeight.semibold,
+    fontWeight: '600',
     color: CINEMA.onPrimary,
   },
   diaryHeaderRow: {
@@ -504,25 +559,29 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: Spacing.sm + 2,
+    paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: Radius.pill,
     backgroundColor: CINEMA.primaryTint,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 180, 170, 0.2)',
   },
   newEntryButtonText: {
     fontSize: 13,
-    fontWeight: FontWeight.semibold,
+    fontWeight: '600',
     color: CINEMA.primary,
   },
   newEntryCard: {
-    borderRadius: Radius.card,
+    borderRadius: 12,
     backgroundColor: CINEMA.surfaceContainerHigh,
+    borderWidth: 1,
+    borderColor: CINEMA.glassBorder,
     padding: Spacing.sm,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
     gap: Spacing.xs,
   },
   newEntryInput: {
-    minHeight: 60,
+    minHeight: 65,
     padding: Spacing.sm,
     fontSize: 15,
     lineHeight: 21,
@@ -537,7 +596,7 @@ const styles = StyleSheet.create({
   },
   cancelText: {
     fontSize: 14,
-    fontWeight: FontWeight.medium,
+    fontWeight: '500',
     color: CINEMA.onSurfaceDim,
   },
   saveEntryButton: {
@@ -548,7 +607,7 @@ const styles = StyleSheet.create({
   },
   saveEntryButtonText: {
     fontSize: 13,
-    fontWeight: FontWeight.semibold,
+    fontWeight: '600',
     color: CINEMA.onPrimary,
   },
   emptyDiaryText: {
@@ -557,10 +616,12 @@ const styles = StyleSheet.create({
     color: CINEMA.onSurfaceDim,
   },
   diaryEntryCard: {
-    borderRadius: Radius.card,
+    borderRadius: 12,
     backgroundColor: CINEMA.surfaceContainerLow,
+    borderWidth: 1,
+    borderColor: CINEMA.glassBorder,
     padding: Spacing.md,
-    gap: Spacing.xs,
+    gap: 6,
   },
   diaryEntryHeaderRow: {
     flexDirection: 'row',
@@ -569,8 +630,8 @@ const styles = StyleSheet.create({
   },
   diaryEntryLabel: {
     fontSize: 10,
-    fontWeight: FontWeight.bold,
-    letterSpacing: 1,
+    fontWeight: '700',
+    letterSpacing: 1.2,
   },
   diaryEntryDate: {
     fontSize: 12,

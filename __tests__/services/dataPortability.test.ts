@@ -24,12 +24,12 @@ jest.mock('@/db/movies', () => ({
 // ─── db/logEntries mocks ──────────────────────────────────────────────
 const mockLogWatch = jest.fn();
 const mockGetAllLogEntries = jest.fn();
-const mockGetLogEntriesForMovie = jest.fn();
+const mockGetLogEntriesForMedia = jest.fn();
 
 jest.mock('@/db/logEntries', () => ({
   logWatch: (...args: any[]) => mockLogWatch(...args),
   getAllLogEntries: () => mockGetAllLogEntries(),
-  getLogEntriesForMovie: (id: number) => mockGetLogEntriesForMovie(id),
+  getLogEntriesForMedia: (...args: any[]) => mockGetLogEntriesForMedia(...args),
 }));
 
 // ─── db/watchlist mocks ────────────────────────────────────────────────
@@ -38,16 +38,16 @@ const mockGetWatchlistIds = jest.fn();
 
 jest.mock('@/db/watchlist', () => ({
   addToWatchlist: (...args: any[]) => mockAddToWatchlist(...args),
-  getWatchlistIds: () => mockGetWatchlistIds(),
+  getWatchlistIds: (...args: any[]) => mockGetWatchlistIds(...args),
 }));
 
 // ─── db/likes mocks ─────────────────────────────────────────────────────
-const mockLikeMovie = jest.fn();
-const mockGetLikedMovieIds = jest.fn();
+const mockLikeMedia = jest.fn();
+const mockGetLikedIds = jest.fn();
 
 jest.mock('@/db/likes', () => ({
-  likeMovie: (...args: any[]) => mockLikeMovie(...args),
-  getLikedMovieIds: () => mockGetLikedMovieIds(),
+  likeMedia: (...args: any[]) => mockLikeMedia(...args),
+  getLikedIds: (...args: any[]) => mockGetLikedIds(...args),
 }));
 
 // ─── services/tmdb mock ─────────────────────────────────────────────────
@@ -64,7 +64,7 @@ jest.mock('@/services/tmdb', () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockGetLogEntriesForMovie.mockReturnValue([]);
+  mockGetLogEntriesForMedia.mockReturnValue([]);
 });
 
 describe('parseCsv', () => {
@@ -233,7 +233,7 @@ describe('importLetterboxdData', () => {
     expect(mockUpsertMovie).toHaveBeenCalledWith(
       expect.objectContaining({ tmdb_id: 100, title: 'Heat', release_year: 1995 }),
     );
-    expect(mockLogWatch).toHaveBeenCalledWith(100, '2026-01-01');
+    expect(mockLogWatch).toHaveBeenCalledWith(100, 'movie', '2026-01-01');
     expect(mockSetRating).toHaveBeenCalledWith(100, 4.5, null, true);
   });
 
@@ -252,7 +252,7 @@ describe('importLetterboxdData', () => {
 
   it('does not re-log a watched_date that is already in the diary', async () => {
     mockSearchMovies.mockResolvedValue([{ id: 200, release_date: '2000-01-01' }]);
-    mockGetLogEntriesForMovie.mockReturnValue([{ id: 1, movie_id: 200, watched_date: '2026-01-01', created_at: '' }]);
+    mockGetLogEntriesForMedia.mockReturnValue([{ id: 1, movie_id: 200, watched_date: '2026-01-01', created_at: '' }]);
 
     const diaryCsv =
       'Date,Name,Year,Letterboxd URI,Rating,Rewatch,Tags,Watched Date\n' +
@@ -279,7 +279,7 @@ describe('importLetterboxdData', () => {
     expect(summary.matched).toBe(1);
     expect(summary.unmatched).toEqual([]);
     expect(mockSetRating).toHaveBeenCalledWith(100, 4.5, null, true);
-    expect(mockLogWatch).toHaveBeenCalledWith(100, '2026-01-01');
+    expect(mockLogWatch).toHaveBeenCalledWith(100, 'movie', '2026-01-01');
   });
 
   it('falls back to the diary row Rating when ratings.csv has no entry for that title', async () => {
@@ -299,7 +299,7 @@ describe('buildBackup', () => {
     mockGetAllCachedMovies.mockReturnValue([{ tmdb_id: 1, title: 'A' }]);
     mockGetAllLogEntries.mockReturnValue([{ id: 1, movie_id: 1, watched_date: '2026-01-01', created_at: '' }]);
     mockGetWatchlistIds.mockReturnValue([2, 3]);
-    mockGetLikedMovieIds.mockReturnValue([4]);
+    mockGetLikedIds.mockReturnValue([4]);
 
     const backup = buildBackup();
     expect(backup.version).toBe(BACKUP_VERSION);
@@ -342,9 +342,9 @@ describe('restoreBackup', () => {
     );
     // The real review must round-trip, not be discarded as null.
     expect(mockSetRating).toHaveBeenCalledWith(1, 4.5, 'Great film', true);
-    expect(mockLogWatch).toHaveBeenCalledWith(1, '2026-01-01');
-    expect(mockAddToWatchlist).toHaveBeenCalledWith(2);
-    expect(mockLikeMovie).toHaveBeenCalledWith(3);
+    expect(mockLogWatch).toHaveBeenCalledWith(1, 'movie', '2026-01-01');
+    expect(mockAddToWatchlist).toHaveBeenCalledWith(2, 'movie');
+    expect(mockLikeMedia).toHaveBeenCalledWith(3, 'movie');
 
     expect(summary.moviesRestored).toBe(1);
     expect(summary.logEntriesRestored).toBe(1);
@@ -353,7 +353,7 @@ describe('restoreBackup', () => {
   });
 
   it('skips a log entry that already exists for that movie+date', () => {
-    mockGetLogEntriesForMovie.mockReturnValue([{ id: 1, movie_id: 1, watched_date: '2026-01-01', created_at: '' }]);
+    mockGetLogEntriesForMedia.mockReturnValue([{ id: 1, movie_id: 1, watched_date: '2026-01-01', created_at: '' }]);
     const doc = {
       movies: [],
       logEntries: [{ movie_id: 1, watched_date: '2026-01-01' }],

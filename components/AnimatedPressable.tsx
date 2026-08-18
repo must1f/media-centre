@@ -26,6 +26,8 @@ const SPRING_CONFIG = {
   mass: 0.8,
 };
 
+const AnimatedPressableInner = Animated.createAnimatedComponent(Pressable);
+
 export function AnimatedPressable({
   children,
   style,
@@ -43,7 +45,7 @@ export function AnimatedPressable({
     transform: [{ scale: scale.value }],
   }));
 
-  const handlePressIn = () => {
+  const handlePressIn = (event: GestureResponderEvent) => {
     if (disabled) return;
     scale.value = withSpring(scaleTo, SPRING_CONFIG);
     if (haptic) {
@@ -51,24 +53,22 @@ export function AnimatedPressable({
     }
   };
 
-  const handlePressOut = () => {
+  const handlePressOut = (event: GestureResponderEvent) => {
     scale.value = withSpring(1, SPRING_CONFIG);
   };
 
   return (
-    <Animated.View style={[animatedStyle, style]}>
-      <Pressable
-        onPress={onPress}
-        onLongPress={onLongPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        disabled={disabled}
-        accessibilityLabel={accessibilityLabel}
-        accessibilityRole={accessibilityRole}
-        style={{ width: '100%', height: '100%' }}
-      >
-        {children}
-      </Pressable>
-    </Animated.View>
+    <AnimatedPressableInner
+      onPress={onPress}
+      onLongPress={onLongPress}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      disabled={disabled}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={accessibilityRole}
+      style={[style, animatedStyle]}
+    >
+      {children}
+    </AnimatedPressableInner>
   );
 }

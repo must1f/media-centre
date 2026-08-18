@@ -14,14 +14,32 @@ export interface TmdbMovie {
   vote_average: number;
 }
 
+export interface TmdbReview {
+  id: string;
+  author: string;
+  author_details?: {
+    name?: string;
+    username?: string;
+    avatar_path?: string | null;
+    rating?: number | null;
+  };
+  content: string;
+  created_at: string;
+}
+
 export interface TmdbMovieDetail extends TmdbMovie {
   genres: TmdbGenre[];
   runtime: number | null;
+  tagline?: string | null;
+  status?: string | null;
+  original_language?: string | null;
   credits: {
     cast: TmdbCastMember[];
+    crew?: { id: number; name: string; job: string; department: string }[];
   };
   similar?: { results: TmdbMovie[] };
   recommendations?: { results: TmdbMovie[] };
+  reviews?: { results: TmdbReview[] };
   belongs_to_collection: { id: number; name: string } | null;
 }
 
@@ -89,7 +107,7 @@ export async function getTopRated(page = 1): Promise<TmdbMovie[]> {
 /** Full movie detail including credits. */
 export async function getMovieDetails(tmdbId: number): Promise<TmdbMovieDetail> {
   return get<TmdbMovieDetail>(`/movie/${tmdbId}`, {
-    append_to_response: 'credits,similar,recommendations',
+    append_to_response: 'credits,similar,recommendations,reviews',
   });
 }
 

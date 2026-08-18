@@ -214,48 +214,35 @@ export default function VaultScreen() {
               <TouchableOpacity
                 key={chip.id}
                 style={[
-                  styles.filterChip,
+                styles.filterChip,
+                {
+                  // Stitch: active = bg-primary text-on-primary / inactive = bg-surface-container-high text-on-surface
+                  backgroundColor: isActive ? '#ffb4aa' : '#2a2a2a',
+                  borderWidth: 0,
+                },
+              ]}
+              onPress={() => setActiveFilter(chip.id)}
+              activeOpacity={0.8}
+            >
+              {chip.icon ? (
+                <SymbolView
+                  name={chip.icon as any}
+                  size={12}
+                  tintColor={isActive ? '#690003' : '#e5e2e1'}
+                  weight="bold"
+                />
+              ) : null}
+              <Text
+                style={[
+                  styles.filterChipText,
                   {
-                    backgroundColor: isActive
-                      ? colors.accent
-                      : colorScheme === 'dark'
-                      ? 'rgba(42, 42, 42, 0.85)'
-                      : 'rgba(235, 235, 235, 0.95)',
-                    borderColor: isActive
-                      ? colors.accent
-                      : colorScheme === 'dark'
-                      ? 'rgba(255, 255, 255, 0.10)'
-                      : 'rgba(0, 0, 0, 0.08)',
-                    borderWidth: 1,
-                    shadowColor: isActive ? colors.accent : '#000000',
-                    shadowOffset: { width: 0, height: isActive ? 3 : 1 },
-                    shadowOpacity: isActive ? 0.35 : 0.05,
-                    shadowRadius: isActive ? 8 : 2,
-                    elevation: isActive ? 4 : 1,
+                    color: isActive ? '#690003' : '#e5e2e1',
+                    fontWeight: isActive ? FontWeight.heavy : FontWeight.semibold,
                   },
                 ]}
-                onPress={() => setActiveFilter(chip.id)}
-                activeOpacity={0.8}
               >
-                {chip.icon ? (
-                  <SymbolView
-                    name={chip.icon as any}
-                    size={12}
-                    tintColor={isActive ? '#FFFFFF' : colors.secondaryLabel}
-                    weight="bold"
-                  />
-                ) : null}
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    {
-                      color: isActive ? '#FFFFFF' : colors.label,
-                      fontWeight: isActive ? FontWeight.heavy : FontWeight.semibold,
-                    },
-                  ]}
-                >
-                  {chip.label}
-                </Text>
+                {chip.label}
+              </Text>
               </TouchableOpacity>
             );
           })}
