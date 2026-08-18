@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -16,6 +16,12 @@ import { Image } from 'expo-image';
 import { FlashList } from '@shopify/flash-list';
 import { SymbolView } from 'expo-symbols';
 import * as Haptics from 'expo-haptics';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSequence,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { PosterBackdrop } from '@/components/PosterBackdrop';
 import { ToggleButton } from '@/components/ToggleButton';
@@ -30,7 +36,7 @@ import { getMovieDetails, type TmdbMovieDetail, type TmdbMovie } from '@/service
 import { upsertMovie, getMovie, type Movie } from '@/db/movies';
 import { isLiked, toggleLike } from '@/db/likes';
 import { isOnWatchlist, toggleWatchlist } from '@/db/watchlist';
-import { hasWatched } from '@/db/logEntries';
+import { hasWatched, logWatch, getLogEntriesForMovie } from '@/db/logEntries';
 import { getFranchiseRow, type FranchiseRow } from '@/services/franchise';
 import { QuickLogSheet } from '@/components/QuickLogSheet';
 
@@ -62,6 +68,10 @@ export default function MovieDetailScreen() {
   const [error, setError] = useState(false);
   const [showLogSheet, setShowLogSheet] = useState(false);
   const [franchiseRow, setFranchiseRow] = useState<FranchiseRow | null>(null);
+  const [watchCount, setWatchCount] = useState(0);
+  const [justRewatched, setJustRewatched] = useState(false);
+  const rewatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rewatchScale = useSharedValue(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -89,12 +99,20 @@ export default function MovieDetailScreen() {
       getFranchiseRow(data)
         .then((row) => setFranchiseRow(row ? { ...row, movies: row.movies.filter((m) => m.id !== tmdbId) } : null))
         .catch(() => setFranchiseRow(null));
+
+      setWatchCount(getLogEntriesForMovie(tmdbId).length);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
   }, [tmdbId]);
+
+  useEffect(() => {
+    return () => {
+      if (rewatchTimerRef.current) clearTimeout(rewatchTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     load();
@@ -126,12 +144,36 @@ export default function MovieDetailScreen() {
 
   function handleLogChanged() {
     setLocalMovie(getMovie(tmdbId));
+    setWatchCount(getLogEntriesForMovie(tmdbId).length);
   }
 
   function handleLogDismiss() {
     handleLogChanged();
     setShowLogSheet(false);
   }
+
+  function handleRewatch() {
+    const today = new Date().toISOString().slice(0, 10);
+    logWatch(tmdbId, today);
+
+    setLocalMovie(getMovie(tmdbId));
+    setWatchCount(getLogEntriesForMovie(tmdbId).length);
+
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    rewatchScale.value = withSequence(
+      withSpring(1.15, { damping: 10, stiffness: 260 }),
+      withSpring(1, { damping: 12, stiffness: 260 })
+    );
+
+    setJustRewatched(true);
+    if (rewatchTimerRef.current) clearTimeout(rewatchTimerRef.current);
+    rewatchTimerRef.current = setTimeout(() => setJustRewatched(false), 1500);
+  }
+
+  const rewatchAnimatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: rewatchScale.value }],
+  }));
+
 
   const similar: TmdbMovie[] = detail?.similar?.results?.slice(0, 10) ?? [];
   const cast = detail?.credits?.cast?.slice(0, 10) ?? [];
@@ -277,6 +319,32 @@ export default function MovieDetailScreen() {
                 <SymbolView name="sparkles" size={16} tintColor="#FFFFFF" weight="bold" />
                 <Text style={styles.primaryLogButtonText}>Rate & Review</Text>
               </TouchableOpacity>
+
+              {watchCount > 0 && (
+                <Animated.View style={rewatchAnimatedStyle}>
+                  <TouchableOpacity
+                    style={[
+                      styles.rewatchButton,
+                      {
+                        backgroundColor: colors.searchBarBackground,
+                        borderColor: colors.accent,
+                        borderWidth: 1.5,
+                      },
+                    ]}
+                    onPress={handleRewatch}
+                    activeOpacity={0.85}
+                    accessibilityRole="button"
+                    accessibilityLabel="Log a rewatch for today"
+                  >
+                    <SymbolView
+                      name={justRewatched ? 'checkmark' : 'arrow.clockwise'}
+                      size={18}
+                      tintColor={colors.accent}
+                      weight="bold"
+                    />
+                  </TouchableOpacity>
+                </Animated.View>
+              )}
 
               <ToggleButton
                 type="like"
@@ -582,6 +650,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: FontSize.subheadline,
     fontWeight: FontWeight.bold,
+  },
+  rewatchButton: {
+    width: 44,
+    height: 44,
+    borderRadius: Radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // @ts-ignore
+    borderCurve: 'continuous',
   },
   insetCard: {
     marginHorizontal: Spacing.md,
