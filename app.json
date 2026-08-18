@@ -28,7 +28,8 @@
       "expo-router",
       "expo-sqlite",
       "expo-image",
-      "expo-asset"
+      "expo-asset",
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true
