@@ -1,6 +1,7 @@
 import { computeYearStats, monthName } from '@/services/yearRecap';
 import type { LogEntry } from '@/db/logEntries';
 import type { Movie } from '@/db/movies';
+import type { Series } from '@/db/series';
 
 function makeMovie(overrides: Partial<Movie> & { tmdb_id: number }): Movie {
   return {
@@ -17,9 +18,26 @@ function makeMovie(overrides: Partial<Movie> & { tmdb_id: number }): Movie {
   };
 }
 
+function makeSeries(overrides: Partial<Series> & { tmdb_id: number }): Series {
+  return {
+    name: `Series ${overrides.tmdb_id}`,
+    poster_path: null,
+    dominant_color: null,
+    first_air_year: 2020,
+    genres: null,
+    overview: null,
+    status: null,
+    my_rating: null,
+    my_review: null,
+    rating_updated_at: null,
+    ...overrides,
+  };
+}
+
 function makeEntry(overrides: Partial<LogEntry> & { id: number; movie_id: number; watched_date: string }): LogEntry {
   return {
     created_at: '2026-01-01 00:00:00',
+    media_type: 'movie',
     ...overrides,
   };
 }
@@ -135,5 +153,57 @@ describe('computeYearStats', () => {
 
     expect(stats.topGenre).toBeNull();
     expect(stats.totalWatched).toBe(1);
+  });
+
+  it('counts series watches toward totalWatched and dedupes uniqueTitles by (media_type, movie_id)', () => {
+    // A movie and a series sharing the same tmdb_id must be counted as two distinct titles.
+    const movies = [makeMovie({ tmdb_id: 1 })];
+    const series = [makeSeries({ tmdb_id: 1 })];
+    const entries = [
+      makeEntry({ id: 1, movie_id: 1, media_type: 'movie', watched_date: '2026-01-05' }),
+      makeEntry({ id: 2, movie_id: 1, media_type: 'series', watched_date: '2026-01-06' }),
+      makeEntry({ id: 3, movie_id: 1, media_type: 'series', watched_date: '2026-02-01' }), // rewatch/re-episode
+    ];
+
+    const stats = computeYearStats(entries, movies, 2026, series);
+
+    expect(stats.totalWatched).toBe(3);
+    expect(stats.uniqueTitles).toBe(2);
+  });
+
+  it('ranks top-rated series alongside top-rated movies without mixing them into the wrong list', () => {
+    const movies = [makeMovie({ tmdb_id: 1, my_rating: 3 })];
+    const series = [
+      makeSeries({ tmdb_id: 2, my_rating: 5 }),
+      makeSeries({ tmdb_id: 3, my_rating: 4 }),
+    ];
+    const entries = [
+      makeEntry({ id: 1, movie_id: 1, media_type: 'movie', watched_date: '2026-02-01' }),
+      makeEntry({ id: 2, movie_id: 2, media_type: 'series', watched_date: '2026-02-02' }),
+      makeEntry({ id: 3, movie_id: 3, media_type: 'series', watched_date: '2026-02-03' }),
+    ];
+
+    const stats = computeYearStats(entries, movies, 2026, series);
+
+    expect(stats.topRatedMovies.map((m) => m.movie.tmdb_id)).toEqual([1]);
+    expect(stats.topRatedSeries.map((s) => s.series.tmdb_id)).toEqual([2, 3]);
+    // Overall average blends both: (3 + 5 + 4) / 3 = 4
+    expect(stats.averageRating).toBe(4);
+  });
+
+  it('folds series genres into the overall genre breakdown', () => {
+    const movies = [makeMovie({ tmdb_id: 1, genres: JSON.stringify([{ id: 18, name: 'Drama' }]) })];
+    const series = [makeSeries({ tmdb_id: 2, genres: JSON.stringify([{ id: 18, name: 'Drama' }, { id: 80, name: 'Crime' }]) })];
+    const entries = [
+      makeEntry({ id: 1, movie_id: 1, media_type: 'movie', watched_date: '2026-01-01' }),
+      makeEntry({ id: 2, movie_id: 2, media_type: 'series', watched_date: '2026-01-02' }),
+    ];
+
+    const stats = computeYearStats(entries, movies, 2026, series);
+
+    expect(stats.topGenre).toEqual({ name: 'Drama', count: 2 });
+    expect(stats.genreBreakdown).toEqual(
+      expect.arrayContaining([{ name: 'Drama', count: 2 }, { name: 'Crime', count: 1 }])
+    );
   });
 });
