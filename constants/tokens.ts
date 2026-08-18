@@ -141,20 +141,27 @@ export const Colors: Record<ColorScheme, ThemeColors> = {
 // TMDB image base URLs (runtime values come from .env via process.env)
 export const TMDB_IMAGE_BASE = process.env.EXPO_PUBLIC_TMDB_IMAGE_BASE_URL ?? 'https://image.tmdb.org/t/p';
 
-/** Build a full TMDB poster URL. Size: 'w185' | 'w342' | 'w500' | 'w780' | 'original' */
+function isAbsoluteUrl(path: string): boolean {
+  return path.startsWith('http://') || path.startsWith('https://');
+}
+
+/** Build a full TMDB poster URL. Size: 'w185' | 'w342' | 'w500' | 'w780' | 'original'. Already-absolute URLs (e.g. AniList cover images) pass through unchanged. */
 export function posterUrl(posterPath: string | null | undefined, size: string = 'w342'): string | null {
   if (!posterPath) return null;
+  if (isAbsoluteUrl(posterPath)) return posterPath;
   return `${TMDB_IMAGE_BASE}/${size}${posterPath}`;
 }
 
-/** Build a full TMDB backdrop URL. Size: 'w300' | 'w780' | 'w1280' | 'original' */
+/** Build a full TMDB backdrop URL. Size: 'w300' | 'w780' | 'w1280' | 'original'. Already-absolute URLs pass through unchanged. */
 export function backdropUrl(backdropPath: string | null | undefined, size: string = 'w780'): string | null {
   if (!backdropPath) return null;
+  if (isAbsoluteUrl(backdropPath)) return backdropPath;
   return `${TMDB_IMAGE_BASE}/${size}${backdropPath}`;
 }
 
-/** Build a full TMDB episode-still URL. Size: 'w300' | 'w780' | 'original' */
+/** Build a full TMDB episode-still URL. Size: 'w300' | 'w780' | 'original'. Already-absolute URLs (e.g. AniList episode thumbnails) pass through unchanged. */
 export function stillUrl(stillPath: string | null | undefined, size: string = 'w300'): string | null {
   if (!stillPath) return null;
+  if (isAbsoluteUrl(stillPath)) return stillPath;
   return `${TMDB_IMAGE_BASE}/${size}${stillPath}`;
 }
