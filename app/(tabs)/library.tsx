@@ -19,10 +19,11 @@ import { RowHeader } from '@/components/RowHeader';
 
 // DB CRUD functions
 import { getAllCachedMovies, type Movie } from '@/db/movies';
+import { getAllCachedSeries, type Series } from '@/db/series';
 import { getAllLogEntries, type LogEntry } from '@/db/logEntries';
 import { getWatchlistIds } from '@/db/watchlist';
 
-type FilterCategory = 'all' | 'movies' | 'diary' | 'watchlist' | 'ratings';
+type FilterCategory = 'all' | 'movies' | 'series' | 'diary' | 'watchlist' | 'ratings';
 type DisplayMode = 'reels' | 'grid' | 'list';
 
 export default function VaultScreen() {
@@ -34,6 +35,7 @@ export default function VaultScreen() {
 
   // Data State
   const [movies, setMovies] = useState<Movie[]>([]);
+  const [series, setSeries] = useState<Series[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [watchlistIds, setWatchlistIds] = useState<number[]>([]);
 
@@ -41,14 +43,22 @@ export default function VaultScreen() {
   useFocusEffect(
     React.useCallback(() => {
       setMovies(getAllCachedMovies());
+      setSeries(getAllCachedSeries());
       setLogEntries(getAllLogEntries());
       setWatchlistIds(getWatchlistIds('movie'));
     }, [])
   );
 
   // Derived data sets
-  const watchedMovieIds = new Set(logEntries.map((l) => l.movie_id));
+  const watchedMovieIds = new Set(
+    logEntries.filter((l) => l.media_type === 'movie').map((l) => l.movie_id)
+  );
   const watchedMovies = movies.filter((m) => watchedMovieIds.has(m.tmdb_id));
+
+  const watchedSeriesIds = new Set(
+    logEntries.filter((l) => l.media_type === 'series').map((l) => l.movie_id)
+  );
+  const watchedSeries = series.filter((s) => watchedSeriesIds.has(s.tmdb_id));
 
   const ratedMovies = movies
     .filter((m) => m.my_rating !== null)
@@ -70,7 +80,7 @@ export default function VaultScreen() {
     };
   });
 
-  const totalVaultCount = movies.length + watchlistMovies.length;
+  const totalVaultCount = movies.length + watchlistMovies.length + series.length;
 
   const navigateToDetail = (tmdbId: number) => {
     router.push(`/movie/${tmdbId}`);
@@ -79,6 +89,7 @@ export default function VaultScreen() {
   const filterChips: { id: FilterCategory; label: string; icon?: string }[] = [
     { id: 'all', label: 'All Saves' },
     { id: 'movies', label: 'Watched' },
+    { id: 'series', label: 'TV Shows' },
     { id: 'watchlist', label: 'Watchlist', icon: 'bookmark.fill' },
     { id: 'ratings', label: 'Ratings', icon: 'star.fill' },
     { id: 'diary', label: 'Diary', icon: 'calendar' },
@@ -305,6 +316,31 @@ export default function VaultScreen() {
             </View>
           )}
 
+          {/* Watched Series Reel */}
+          {watchedSeries.length > 0 && (
+            <View style={styles.reelSection}>
+              <RowHeader title="Series Watched" onSeeAll={() => setActiveFilter('series')} />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+              >
+                {watchedSeries.map((show) => (
+                  <View key={show.tmdb_id} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
+                    <PosterGridCell
+                      tmdbId={show.tmdb_id}
+                      title={show.name}
+                      posterPath={show.poster_path}
+                      releaseYear={show.first_air_year}
+                      rating={show.my_rating}
+                      onPress={() => router.push(`/series/${show.tmdb_id}`)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           {/* Watchlist Reel */}
           {watchlistMovies.length > 0 && (
             <View style={styles.reelSection}>
@@ -384,7 +420,9 @@ export default function VaultScreen() {
         /* Full Grid Mode */
         <FlashList
           data={
-            activeFilter === 'watchlist'
+            activeFilter === 'series'
+              ? series
+              : activeFilter === 'watchlist'
               ? watchlistMovies
               : activeFilter === 'ratings'
               ? ratedMovies
@@ -401,11 +439,15 @@ export default function VaultScreen() {
           renderItem={({ item }: { item: any }) => (
             <PosterGridCell
               tmdbId={item.tmdb_id ?? item.tmdbId}
-              title={item.title}
+              title={item.title ?? item.name}
               posterPath={item.poster_path ?? item.posterPath}
-              releaseYear={item.release_year ?? item.releaseYear}
+              releaseYear={item.release_year ?? item.releaseYear ?? item.first_air_year}
               rating={item.my_rating ?? item.rating}
-              onPress={() => navigateToDetail(item.tmdb_id ?? item.tmdbId)}
+              onPress={() =>
+                activeFilter === 'series'
+                  ? router.push(`/series/${item.tmdb_id}`)
+                  : navigateToDetail(item.tmdb_id ?? item.tmdbId)
+              }
               style={{ marginHorizontal: Spacing.xs / 2 }}
             />
           )}
@@ -421,7 +463,9 @@ export default function VaultScreen() {
           >
             <FlashList
               data={
-                activeFilter === 'watchlist'
+                activeFilter === 'series'
+                  ? series
+                  : activeFilter === 'watchlist'
                   ? watchlistMovies
                   : activeFilter === 'ratings'
                   ? ratedMovies
@@ -435,12 +479,16 @@ export default function VaultScreen() {
               contentContainerStyle={{ paddingBottom: 130 }}
               renderItem={({ item, index }: { item: any; index: number }) => (
                 <CompactLibraryRow
-                  title={item.title}
+                  title={item.title ?? item.name}
                   posterPath={item.poster_path ?? item.posterPath}
-                  releaseYear={item.release_year ?? item.releaseYear}
+                  releaseYear={item.release_year ?? item.releaseYear ?? item.first_air_year}
                   rating={item.my_rating ?? item.rating}
                   watchedDate={item.watchedDate}
-                  onPress={() => navigateToDetail(item.tmdb_id ?? item.tmdbId)}
+                  onPress={() =>
+                    activeFilter === 'series'
+                      ? router.push(`/series/${item.tmdb_id}`)
+                      : navigateToDetail(item.tmdb_id ?? item.tmdbId)
+                  }
                   isLast={index === movies.length - 1}
                 />
               )}
