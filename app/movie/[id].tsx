@@ -30,6 +30,8 @@ import { getMovieDetails, type TmdbMovieDetail, type TmdbMovie } from '@/service
 import { upsertMovie, getMovie, type Movie } from '@/db/movies';
 import { isLiked, toggleLike } from '@/db/likes';
 import { isOnWatchlist, toggleWatchlist } from '@/db/watchlist';
+import { hasWatched } from '@/db/logEntries';
+import { getFranchiseRow, type FranchiseRow } from '@/services/franchise';
 import { QuickLogSheet } from '@/components/QuickLogSheet';
 
 function releaseYearFrom(detail: TmdbMovieDetail): number | null {
@@ -59,6 +61,7 @@ export default function MovieDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [showLogSheet, setShowLogSheet] = useState(false);
+  const [franchiseRow, setFranchiseRow] = useState<FranchiseRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,11 +78,17 @@ export default function MovieDetailScreen() {
         release_year: releaseYearFrom(data),
         genres: JSON.stringify(data.genres ?? []),
         overview: data.overview,
+        collection_id: data.belongs_to_collection?.id ?? null,
+        collection_name: data.belongs_to_collection?.name ?? null,
       });
 
       setLocalMovie(getMovie(tmdbId));
       setLiked(isLiked(tmdbId));
       setWatchlisted(isOnWatchlist(tmdbId));
+
+      getFranchiseRow(data)
+        .then((row) => setFranchiseRow(row ? { ...row, movies: row.movies.filter((m) => m.id !== tmdbId) } : null))
+        .catch(() => setFranchiseRow(null));
     } catch {
       setError(true);
     } finally {
@@ -115,9 +124,13 @@ export default function MovieDetailScreen() {
     }
   }
 
-  function handleLogSaved() {
-    setShowLogSheet(false);
+  function handleLogChanged() {
     setLocalMovie(getMovie(tmdbId));
+  }
+
+  function handleLogDismiss() {
+    handleLogChanged();
+    setShowLogSheet(false);
   }
 
   const similar: TmdbMovie[] = detail?.similar?.results?.slice(0, 10) ?? [];
@@ -262,7 +275,7 @@ export default function MovieDetailScreen() {
                 accessibilityLabel="Log this movie"
               >
                 <SymbolView name="sparkles" size={16} tintColor="#FFFFFF" weight="bold" />
-                <Text style={styles.primaryLogButtonText}>Log Movie</Text>
+                <Text style={styles.primaryLogButtonText}>Rate & Review</Text>
               </TouchableOpacity>
 
               <ToggleButton
@@ -434,6 +447,31 @@ export default function MovieDetailScreen() {
               </View>
             )}
 
+            {/* Franchise & Collection Ordering */}
+            {franchiseRow && franchiseRow.movies.length > 0 && (
+              <View style={styles.section}>
+                <RowHeader title={franchiseRow.title} />
+                <FlashList
+                  horizontal
+                  data={franchiseRow.movies}
+                  keyExtractor={(item) => String(item.id)}
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+                  ItemSeparatorComponent={() => <View style={{ width: Spacing.xs }} />}
+                  renderItem={({ item }) => (
+                    <CardFeedItem
+                      tmdbId={item.id}
+                      title={item.title}
+                      posterPath={item.poster_path}
+                      releaseYear={item.release_date ? parseInt(item.release_date.slice(0, 4), 10) : null}
+                      watched={hasWatched(item.id)}
+                      onPress={() => router.push(`/movie/${item.id}`)}
+                    />
+                  )}
+                />
+              </View>
+            )}
+
             <View style={{ height: 60 }} />
           </ScrollView>
         </PosterBackdrop>
@@ -451,11 +489,14 @@ export default function MovieDetailScreen() {
             tmdbId={tmdbId}
             title={detail.title}
             posterPath={detail.poster_path}
+            backdropPath={detail.backdrop_path}
+            genreLabel={detail.genres?.[0]?.name ?? null}
+            releaseYear={year}
             dominantColor={localMovie?.dominant_color}
             existingReview={localMovie?.my_review ?? null}
             existingRating={localMovie?.my_rating ?? null}
-            onSave={handleLogSaved}
-            onDismiss={() => setShowLogSheet(false)}
+            onChange={handleLogChanged}
+            onDismiss={handleLogDismiss}
           />
         )}
       </Modal>

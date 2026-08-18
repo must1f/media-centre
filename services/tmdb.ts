@@ -22,6 +22,7 @@ export interface TmdbMovieDetail extends TmdbMovie {
   };
   similar?: { results: TmdbMovie[] };
   recommendations?: { results: TmdbMovie[] };
+  belongs_to_collection: { id: number; name: string } | null;
 }
 
 export interface TmdbGenre {
@@ -104,6 +105,17 @@ export async function getRecommendations(tmdbId: number): Promise<TmdbMovie[]> {
   return data.results;
 }
 
+/** Bare movie record by id, without the heavier append_to_response data. */
+export async function getMovieBasic(tmdbId: number): Promise<TmdbMovie> {
+  return get<TmdbMovie>(`/movie/${tmdbId}`);
+}
+
+/** Member movies of a TMDB collection, sorted by release date (ascending). */
+export async function getCollection(collectionId: number): Promise<TmdbMovie[]> {
+  const data = await get<{ parts: TmdbMovie[] }>(`/collection/${collectionId}`);
+  return [...data.parts].sort((a, b) => a.release_date.localeCompare(b.release_date));
+}
+
 /** Discover movies filtered by genre id. */
 export async function discoverByGenre(genreId: number, page = 1): Promise<TmdbMovie[]> {
   const data = await get<TmdbListResponse<TmdbMovie>>('/discover/movie', {
@@ -112,6 +124,31 @@ export async function discoverByGenre(genreId: number, page = 1): Promise<TmdbMo
     page: String(page),
   });
   return data.results;
+}
+
+export interface TmdbVideo {
+  id: string;
+  key: string;
+  site: string;
+  type: string;
+  official: boolean;
+}
+
+/** Trailers/teasers for a movie. Filters to YouTube results. */
+export async function getVideos(tmdbId: number): Promise<TmdbVideo[]> {
+  const data = await get<{ results: TmdbVideo[] }>(`/movie/${tmdbId}/videos`);
+  return data.results.filter((v) => v.site === 'YouTube');
+}
+
+/** Pick the best trailer from a list of videos, preferring official trailers. */
+export function pickTrailer(videos: TmdbVideo[]): TmdbVideo | null {
+  return (
+    videos.find((v) => v.type === 'Trailer' && v.official) ??
+    videos.find((v) => v.type === 'Trailer') ??
+    videos.find((v) => v.type === 'Teaser') ??
+    videos[0] ??
+    null
+  );
 }
 
 /** Full list of movie genres from TMDB. */

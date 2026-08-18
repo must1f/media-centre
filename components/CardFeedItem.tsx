@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { Image } from 'expo-image';
+import { SymbolView } from 'expo-symbols';
 import { useTheme } from '@/context/ThemeContext';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/tokens';
 import { posterUrl } from '@/constants/tokens';
@@ -27,6 +28,8 @@ interface CardFeedItemProps {
   rating?: number | null;
   /** Optional numbered badge (e.g. 1-10 for Top 10 row) */
   badge?: number;
+  /** Shows a small "already watched" checkmark overlay (e.g. for the franchise row) */
+  watched?: boolean;
   onPress: () => void;
   style?: ViewStyle;
   width?: number;
@@ -42,6 +45,7 @@ export function CardFeedItem({
   genres,
   rating,
   badge,
+  watched,
   onPress,
   style,
   width = CARD_WIDTH,
@@ -120,6 +124,18 @@ export function CardFeedItem({
             </Text>
           </View>
         )}
+
+        {/* "Already watched" indicator, e.g. for the franchise/collection row */}
+        {watched && (
+          <View
+            style={[
+              styles.watchedBadge,
+              { backgroundColor: colors.accent, borderColor: colors.background, borderWidth: 2 },
+            ]}
+          >
+            <SymbolView name="checkmark" size={11} tintColor="#FFFFFF" weight="bold" />
+          </View>
+        )}
       </View>
 
       {/* Typography underneath poster */}
@@ -168,6 +184,17 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: -6,
     left: 6,
+    zIndex: 2,
+  },
+  watchedBadge: {
+    position: 'absolute',
+    top: 6,
+    right: 6,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 2,
   },
   rankNumber: {

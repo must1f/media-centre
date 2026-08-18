@@ -18,6 +18,8 @@ export function initDatabase(): void {
       release_year      INTEGER,
       genres            TEXT,
       overview          TEXT,
+      collection_id     INTEGER,
+      collection_name   TEXT,
       my_rating         REAL,
       my_review         TEXT,
       rating_updated_at TEXT
@@ -28,6 +30,7 @@ export function initDatabase(): void {
       id           INTEGER PRIMARY KEY AUTOINCREMENT,
       movie_id     INTEGER NOT NULL REFERENCES Movie(tmdb_id) ON DELETE CASCADE,
       watched_date TEXT    NOT NULL,
+      note         TEXT,
       created_at   TEXT    NOT NULL DEFAULT (datetime('now'))
     );
 
@@ -43,4 +46,18 @@ export function initDatabase(): void {
       liked_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Columns added after the initial release — CREATE TABLE IF NOT EXISTS above
+  // won't retrofit these onto a database that already has the table.
+  addColumnIfMissing('Movie', 'collection_id', 'INTEGER');
+  addColumnIfMissing('Movie', 'collection_name', 'TEXT');
+  addColumnIfMissing('LogEntry', 'note', 'TEXT');
+}
+
+function addColumnIfMissing(table: string, column: string, type: string): void {
+  try {
+    db.execSync(`ALTER TABLE ${table} ADD COLUMN ${column} ${type};`);
+  } catch {
+    // Column already exists — ignore.
+  }
 }

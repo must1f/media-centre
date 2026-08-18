@@ -31,6 +31,10 @@ interface StarRatingControlProps {
   onChange: (value: number) => void;
   size?: number;
   readOnly?: boolean;
+  /** Fill color for filled stars. Defaults to the gold rating color. */
+  color?: string;
+  /** Color for unfilled star outlines. Defaults to the theme's tertiary label. */
+  emptyColor?: string;
 }
 
 function clampRating(raw: number): number {
@@ -45,6 +49,8 @@ function AnimatedStarItem({
   readOnly,
   onTap,
   colors,
+  color,
+  emptyColor,
 }: {
   index: number;
   filled: number;
@@ -52,6 +58,8 @@ function AnimatedStarItem({
   readOnly: boolean;
   onTap: (index: number, isHalf: boolean) => void;
   colors: any;
+  color: string;
+  emptyColor: string;
 }) {
   const starValue = index + 1;
   const isFullFilled = filled >= starValue;
@@ -95,7 +103,7 @@ function AnimatedStarItem({
       <SymbolView
         name={isFullFilled ? 'star.fill' : isHalfFilled ? 'star.leadinghalf.filled' : 'star'}
         size={size}
-        tintColor={isFullFilled || isHalfFilled ? (colors.starGold ?? '#FFD60A') : colors.tertiaryLabel}
+        tintColor={isFullFilled || isHalfFilled ? color : emptyColor}
         weight="medium"
       />
     </Animated.View>
@@ -107,8 +115,12 @@ export function StarRatingControl({
   onChange,
   size = 32,
   readOnly = false,
+  color,
+  emptyColor,
 }: StarRatingControlProps) {
   const { colors } = useTheme();
+  const starColor = color ?? colors.starGold ?? '#FFD60A';
+  const starEmptyColor = emptyColor ?? colors.tertiaryLabel;
   const containerWidth = useRef<number>(0);
   const lastHapticValue = useRef<number | null>(null);
 
@@ -201,6 +213,8 @@ export function StarRatingControl({
             readOnly={readOnly}
             onTap={handleStarTap}
             colors={colors}
+            color={starColor}
+            emptyColor={starEmptyColor}
           />
         ))}
       </View>
@@ -210,7 +224,7 @@ export function StarRatingControl({
         <Text
           style={[
             styles.numericLabel,
-            { color: colors.starGold ?? '#FFD60A', fontFamily: Platform.OS === 'ios' ? 'ui-rounded' : undefined },
+            { color: starColor, fontFamily: Platform.OS === 'ios' ? 'ui-rounded' : undefined },
           ]}
         >
           {value.toFixed(1)}

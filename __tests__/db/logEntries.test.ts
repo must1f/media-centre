@@ -1,4 +1,5 @@
 import { setRating, type Movie } from '@/db/movies';
+import { hasWatched } from '@/db/logEntries';
 
 // Mock client database singleton
 const mockRunSync = jest.fn();
@@ -39,6 +40,8 @@ describe('setRating overwrite guard', () => {
       release_year: 2026,
       genres: null,
       overview: 'Overview',
+      collection_id: null,
+      collection_name: null,
       my_rating: 4.0,
       my_review: 'Original review text',
       rating_updated_at: '2026-08-17',
@@ -61,6 +64,8 @@ describe('setRating overwrite guard', () => {
       release_year: 2026,
       genres: null,
       overview: 'Overview',
+      collection_id: null,
+      collection_name: null,
       my_rating: 4.0,
       my_review: 'Original review text',
       rating_updated_at: '2026-08-17',
@@ -86,6 +91,8 @@ describe('setRating overwrite guard', () => {
       release_year: 2026,
       genres: null,
       overview: 'Overview',
+      collection_id: null,
+      collection_name: null,
       my_rating: 4.0,
       my_review: 'Original review text',
       rating_updated_at: '2026-08-17',
@@ -97,5 +104,21 @@ describe('setRating overwrite guard', () => {
 
     expect(result).toBe(true);
     expect(mockRunSync).toHaveBeenCalled();
+  });
+});
+
+describe('hasWatched', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('returns true when at least one log entry exists for the movie', () => {
+    mockGetFirstSync.mockReturnValue({ count: 2 });
+    expect(hasWatched(123)).toBe(true);
+  });
+
+  it('returns false when no log entries exist for the movie', () => {
+    mockGetFirstSync.mockReturnValue({ count: 0 });
+    expect(hasWatched(123)).toBe(false);
   });
 });
