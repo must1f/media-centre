@@ -78,7 +78,7 @@ export default function MovieDetailScreen() {
       });
 
       setLocalMovie(getMovie(tmdbId));
-      setLiked(isLiked(tmdbId));
+      setLiked(isLiked(tmdbId, 'movie'));
       setWatchlisted(isOnWatchlist(tmdbId, 'movie'));
     } catch {
       setError(true);
@@ -92,7 +92,7 @@ export default function MovieDetailScreen() {
   }, [load]);
 
   function handleLikeToggle() {
-    const next = toggleLike(tmdbId);
+    const next = toggleLike(tmdbId, 'movie');
     setLiked(next);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }

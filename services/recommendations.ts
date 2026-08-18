@@ -1,4 +1,4 @@
-import { getLikedMovieIds } from '@/db/likes';
+import { getLikedIds } from '@/db/likes';
 import { getAllLogEntries } from '@/db/logEntries';
 import { getAllCachedMovies, getRatedMovies } from '@/db/movies';
 import { discoverByGenre, getRecommendations, getTrending, type TmdbMovie } from './tmdb';
@@ -12,7 +12,7 @@ export async function getSuggestedForYou(): Promise<TmdbMovie[]> {
 
   // Seed from top-rated movies (rating >= 4) and liked movies
   const rated = getRatedMovies().filter((m) => (m.my_rating ?? 0) >= 4);
-  const likedIds = getLikedMovieIds();
+  const likedIds = getLikedIds('movie');
   const seedIds = [
     ...rated.map((m) => m.tmdb_id),
     ...likedIds,

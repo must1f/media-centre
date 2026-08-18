@@ -1,13 +1,13 @@
 import { getSuggestedForYou, getDiscoverSomethingNew } from '@/services/recommendations';
 
 // Mock DB modules
-const mockGetLikedMovieIds = jest.fn();
+const mockGetLikedIds = jest.fn();
 const mockGetAllLogEntries = jest.fn();
 const mockGetRatedMovies = jest.fn();
 const mockGetAllCachedMovies = jest.fn();
 
 jest.mock('@/db/likes', () => ({
-  getLikedMovieIds: () => mockGetLikedMovieIds(),
+  getLikedIds: () => mockGetLikedIds(),
 }));
 jest.mock('@/db/logEntries', () => ({
   getAllLogEntries: () => mockGetAllLogEntries(),
@@ -37,7 +37,7 @@ describe('Recommendation logic', () => {
     it('should return trending movies if there are no seeds (no rated or liked movies)', async () => {
       mockGetAllLogEntries.mockReturnValue([]);
       mockGetRatedMovies.mockReturnValue([]);
-      mockGetLikedMovieIds.mockReturnValue([]);
+      mockGetLikedIds.mockReturnValue([]);
       
       const mockTrending = [
         { id: 101, title: 'Trending 1', poster_path: '/p1.jpg', release_date: '2026-01-01' },
@@ -56,7 +56,7 @@ describe('Recommendation logic', () => {
       mockGetAllLogEntries.mockReturnValue([{ movie_id: 101, watched_date: '2026-08-17' }]);
       // 102 is highly rated (seed)
       mockGetRatedMovies.mockReturnValue([{ tmdb_id: 102, my_rating: 5.0 }]);
-      mockGetLikedMovieIds.mockReturnValue([]);
+      mockGetLikedIds.mockReturnValue([]);
 
       const mockRecommendations = [
         { id: 101, title: 'Watched Movie' }, // should be filtered out
