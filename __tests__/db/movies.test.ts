@@ -28,11 +28,13 @@ describe('upsertMovie', () => {
       release_year: 2008,
       genres: '["Action"]',
       overview: 'A hero rises.',
+      collection_id: 131296,
+      collection_name: 'Iron Man Collection',
     });
 
     expect(mockRunSync).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO Movie'),
-      [1726, 'Iron Man', '/poster.jpg', null, 2008, '["Action"]', 'A hero rises.'],
+      [1726, 'Iron Man', '/poster.jpg', null, 2008, '["Action"]', 'A hero rises.', 131296, 'Iron Man Collection'],
     );
     expect(mockRunSync.mock.calls[0][0]).toContain('ON CONFLICT(tmdb_id) DO UPDATE SET');
   });
@@ -46,11 +48,13 @@ describe('upsertMovie', () => {
       release_year: null,
       genres: null,
       overview: null,
+      collection_id: null,
+      collection_name: null,
     });
 
     expect(mockRunSync).toHaveBeenCalledWith(
       expect.any(String),
-      [155, 'The Dark Knight', null, null, null, null, null],
+      [155, 'The Dark Knight', null, null, null, null, null, null, null],
     );
   });
 });
@@ -69,6 +73,8 @@ describe('getMovie', () => {
       release_year: 2026,
       genres: null,
       overview: null,
+      collection_id: null,
+      collection_name: null,
       my_rating: null,
       my_review: null,
       rating_updated_at: null,
@@ -120,6 +126,8 @@ describe('getRatedMovies', () => {
         release_year: null,
         genres: null,
         overview: null,
+        collection_id: null,
+        collection_name: null,
         my_rating: 5,
         my_review: null,
         rating_updated_at: '2026-08-01',
