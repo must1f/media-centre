@@ -62,6 +62,51 @@ describe('setEpisodeWatched', () => {
   });
 });
 
+describe('getEpisodesForSeason', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('fetches all episodes for a season, ordered by episode_number', () => {
+    const sampleEpisodes = [
+      {
+        id: 1,
+        season_id: 7,
+        series_id: 1399,
+        episode_number: 1,
+        name: 'Pilot',
+        overview: 'The beginning.',
+        still_path: '/ep1.jpg',
+        air_date: '2022-01-01',
+        runtime: 42,
+        watched: 0,
+        watched_at: null,
+      },
+      {
+        id: 2,
+        season_id: 7,
+        series_id: 1399,
+        episode_number: 2,
+        name: 'Second',
+        overview: 'Continues.',
+        still_path: '/ep2.jpg',
+        air_date: '2022-01-08',
+        runtime: 44,
+        watched: 1,
+        watched_at: '2023-06-15 10:30:00',
+      },
+    ];
+    mockGetAllSync.mockReturnValue(sampleEpisodes);
+
+    const result = getEpisodesForSeason(7);
+
+    expect(result).toEqual(sampleEpisodes);
+    expect(mockGetAllSync).toHaveBeenCalledWith(
+      expect.stringContaining('SELECT * FROM Episode WHERE season_id = ?'),
+      [7],
+    );
+    expect(mockGetAllSync.mock.calls[0][0]).toContain('ORDER BY episode_number ASC');
+  });
+});
+
 describe('getWatchedEpisodeCount / getTotalEpisodeCount', () => {
   beforeEach(() => jest.clearAllMocks());
 
@@ -77,5 +122,11 @@ describe('getWatchedEpisodeCount / getTotalEpisodeCount', () => {
   it('counts total cached episodes for a series', () => {
     mockGetFirstSync.mockReturnValue({ count: 24 });
     expect(getTotalEpisodeCount(1399)).toBe(24);
+    expect(mockGetFirstSync).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE series_id = ?'),
+      [1399],
+    );
+    // Verify the query does NOT filter on watched status, distinguishing it from getWatchedEpisodeCount
+    expect(mockGetFirstSync.mock.calls[0][0]).not.toContain('watched');
   });
 });
