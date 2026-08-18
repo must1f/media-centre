@@ -7,12 +7,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FlashList } from '@shopify/flash-list';
 import { SymbolView } from 'expo-symbols';
 import { CardFeedItem } from '@/components/CardFeedItem';
 import { LandscapeMediaCard } from '@/components/LandscapeMediaCard';
+import { PosterGridCell } from '@/components/PosterGridCell';
 import { FeaturedHeroBanner } from '@/components/FeaturedHeroBanner';
 import { RowHeader } from '@/components/RowHeader';
 import { ErrorState } from '@/components/ErrorState';
@@ -20,6 +21,9 @@ import { useTheme } from '@/context/ThemeContext';
 import { FontSize, FontWeight, Radius, Spacing } from '@/constants/tokens';
 import { getTrending, getTopRated, type TmdbMovie } from '@/services/tmdb';
 import { getSuggestedForYou, getDiscoverSomethingNew } from '@/services/recommendations';
+import { getTrendingSeries, type TmdbSeries } from '@/services/tmdbTv';
+import { getAllCachedSeries, type Series } from '@/db/series';
+import { getWatchedEpisodeCount, getTotalEpisodeCount } from '@/db/episodes';
 
 function useMovieRow(fetcher: () => Promise<TmdbMovie[]>) {
   const [movies, setMovies] = useState<TmdbMovie[]>([]);
@@ -45,6 +49,77 @@ function useMovieRow(fetcher: () => Promise<TmdbMovie[]>) {
   }, []);
 
   return { movies, loading, error, reload: load };
+}
+
+function useSeriesRow(fetcher: () => Promise<TmdbSeries[]>) {
+  const [series, setSeries] = useState<TmdbSeries[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  async function load() {
+    setLoading(true);
+    setError(false);
+    try {
+      const data = await fetcher();
+      setSeries(data);
+    } catch (err) {
+      console.error(err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return { series, loading, error, reload: load };
+}
+
+interface SeriesRowProps {
+  title: string;
+  series: TmdbSeries[];
+  loading: boolean;
+  error: boolean;
+  onRetry: () => void;
+}
+
+function SeriesRow({ title, series, loading, error, onRetry }: SeriesRowProps) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.rowSection}>
+      <RowHeader title={title} />
+      {loading ? (
+        <ActivityIndicator color={colors.accent} style={styles.rowLoader} />
+      ) : error ? (
+        <View style={styles.rowError}>
+          <ErrorState body={`Could not load ${title.toLowerCase()}.`} onRetry={onRetry} />
+        </View>
+      ) : (
+        <View style={{ minHeight: 220 }}>
+          <FlashList
+            horizontal
+            data={series}
+            keyExtractor={(item) => String(item.id)}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+            ItemSeparatorComponent={() => <View style={{ width: Spacing.xs }} />}
+            renderItem={({ item }) => (
+              <PosterGridCell
+                tmdbId={item.id}
+                title={item.name}
+                posterPath={item.poster_path}
+                releaseYear={item.first_air_date ? parseInt(item.first_air_date.slice(0, 4), 10) : null}
+                onPress={() => router.push(`/series/${item.id}`)}
+              />
+            )}
+          />
+        </View>
+      )}
+    </View>
+  );
 }
 
 interface MovieRowProps {
@@ -115,17 +190,41 @@ function MovieRow({
   );
 }
 
+interface InProgressSeries {
+  series: Series;
+  watched: number;
+  total: number;
+}
+
 export default function HomeScreen() {
   const { colors, colorScheme } = useTheme();
   const trending = useMovieRow(getTrending);
   const topRated = useMovieRow(getTopRated);
   const suggested = useMovieRow(getSuggestedForYou);
   const discover = useMovieRow(getDiscoverSomethingNew);
+  const trendingSeries = useSeriesRow(getTrendingSeries);
 
   const featuredMovie = trending.movies.length > 0 ? trending.movies[0] : null;
 
   // Mock continue watching items from trending/topRated for rich media demonstration
   const continueWatchingMovies = trending.movies.slice(1, 5);
+
+  const [inProgressSeries, setInProgressSeries] = useState<InProgressSeries[]>([]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const cached = getAllCachedSeries();
+      const inProgress: InProgressSeries[] = [];
+      for (const s of cached) {
+        const watched = getWatchedEpisodeCount(s.tmdb_id);
+        const total = getTotalEpisodeCount(s.tmdb_id);
+        if (watched > 0 && watched < total) {
+          inProgress.push({ series: s, watched, total });
+        }
+      }
+      setInProgressSeries(inProgress);
+    }, []),
+  );
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['top']}>
@@ -189,7 +288,7 @@ export default function HomeScreen() {
         />
 
         {/* Continue Watching Section (Stitch Design) */}
-        {continueWatchingMovies.length > 0 && (
+        {(continueWatchingMovies.length > 0 || inProgressSeries.length > 0) && (
           <View style={styles.rowSection}>
             <RowHeader title="Continue Watching" />
             <ScrollView
@@ -199,7 +298,7 @@ export default function HomeScreen() {
             >
               {continueWatchingMovies.map((movie, idx) => (
                 <LandscapeMediaCard
-                  key={movie.id}
+                  key={`movie-${movie.id}`}
                   title={movie.title}
                   backdropPath={movie.backdrop_path}
                   posterPath={movie.poster_path}
@@ -208,9 +307,28 @@ export default function HomeScreen() {
                   onPress={() => router.push(`/movie/${movie.id}`)}
                 />
               ))}
+              {inProgressSeries.map(({ series, watched, total }) => (
+                <LandscapeMediaCard
+                  key={`series-${series.tmdb_id}`}
+                  title={series.name}
+                  posterPath={series.poster_path}
+                  progressPercent={Math.round((watched / total) * 100)}
+                  subtitle={`${watched}/${total} episodes`}
+                  onPress={() => router.push(`/series/${series.tmdb_id}`)}
+                />
+              ))}
             </ScrollView>
           </View>
         )}
+
+        {/* Trending Shows */}
+        <SeriesRow
+          title="Trending Shows"
+          series={trendingSeries.series}
+          loading={trendingSeries.loading}
+          error={trendingSeries.error}
+          onRetry={trendingSeries.reload}
+        />
 
         {/* Top 10 This Week */}
         <MovieRow
