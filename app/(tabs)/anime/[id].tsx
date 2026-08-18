@@ -25,7 +25,14 @@ import {
   type AniListMediaDetail,
 } from '@/services/anilist';
 import { upsertAnime, getAnime, setAnimeRating, type Anime } from '@/db/anime';
-import { upsertAnimeEpisode, getEpisodesForAnime, setAnimeEpisodeWatched, type AnimeEpisode } from '@/db/animeEpisodes';
+import {
+  upsertAnimeEpisode,
+  getEpisodesForAnime,
+  setAnimeEpisodeWatched,
+  getTotalAnimeEpisodeCount,
+  type AnimeEpisode,
+} from '@/db/animeEpisodes';
+import db from '@/db/client';
 import { isLiked, toggleLike } from '@/db/likes';
 import { isOnWatchlist, toggleWatchlist } from '@/db/watchlist';
 import { logWatch, getLogEntriesForMedia, deleteLogEntry, type LogEntry } from '@/db/logEntries';
@@ -78,13 +85,17 @@ export default function AnimeDetailScreen() {
       // many streaming episode entries AniList returned while airing) and
       // match streamingEpisodes to episode numbers positionally.
       const totalEpisodes = data.episodes ?? data.streamingEpisodes.length;
-      for (let i = 0; i < totalEpisodes; i += 1) {
-        const streaming = data.streamingEpisodes[i];
-        upsertAnimeEpisode({
-          anime_id: data.id,
-          episode_number: i + 1,
-          title: streaming?.title ?? null,
-          thumbnail: streaming?.thumbnail ?? null,
+      if (getTotalAnimeEpisodeCount(data.id) !== totalEpisodes) {
+        db.withTransactionSync(() => {
+          for (let i = 0; i < totalEpisodes; i += 1) {
+            const streaming = data.streamingEpisodes[i];
+            upsertAnimeEpisode({
+              anime_id: data.id,
+              episode_number: i + 1,
+              title: streaming?.title ?? null,
+              thumbnail: streaming?.thumbnail ?? null,
+            });
+          }
         });
       }
       setEpisodes(getEpisodesForAnime(data.id));
@@ -181,245 +192,256 @@ export default function AnimeDetailScreen() {
   const similar = getSimilarAnime(detail);
   const isOngoing = detail.status === 'RELEASING';
 
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView>
-        <View style={styles.heroWrapper}>
-          <Image
-            source={{ uri: backdropUrl(detail.coverImage.large) ?? undefined }}
-            style={StyleSheet.absoluteFill}
-            contentFit="cover"
-          />
-          <LinearGradient
-            colors={['transparent', colors.background]}
-            style={StyleSheet.absoluteFill}
-          />
-          <Pressable
-            style={styles.backButton}
-            onPress={() => router.back()}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-          >
-            <SymbolView name="chevron.left" size={20} tintColor="#FFFFFF" />
-          </Pressable>
-        </View>
+  const listHeader = (
+    <>
+      <View style={styles.heroWrapper}>
+        <Image
+          source={{ uri: backdropUrl(detail.coverImage.large) ?? undefined }}
+          style={StyleSheet.absoluteFill}
+          contentFit="cover"
+        />
+        <LinearGradient
+          colors={['transparent', colors.background]}
+          style={StyleSheet.absoluteFill}
+        />
+        <Pressable
+          style={styles.backButton}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
+        >
+          <SymbolView name="chevron.left" size={20} tintColor="#FFFFFF" />
+        </Pressable>
+      </View>
 
-        <View style={styles.content}>
-          <Text style={[styles.title, { color: colors.label }]}>{animeTitle(detail.title)}</Text>
-          <View style={styles.tagsRow}>
-            {detail.genres[0] ? (
-              <Text style={[styles.tag, { color: colors.secondaryLabel }]}>{detail.genres[0].toUpperCase()}</Text>
-            ) : null}
-            {startYear(detail) ? (
-              <Text style={[styles.tag, { color: colors.secondaryLabel }]}>{startYear(detail)}</Text>
-            ) : null}
-            <View
+      <View style={styles.content}>
+        <Text style={[styles.title, { color: colors.label }]}>{animeTitle(detail.title)}</Text>
+        <View style={styles.tagsRow}>
+          {detail.genres[0] ? (
+            <Text style={[styles.tag, { color: colors.secondaryLabel }]}>{detail.genres[0].toUpperCase()}</Text>
+          ) : null}
+          {startYear(detail) ? (
+            <Text style={[styles.tag, { color: colors.secondaryLabel }]}>{startYear(detail)}</Text>
+          ) : null}
+          <View
+            style={[
+              styles.statusPill,
+              { borderColor: isOngoing ? colors.accent : colors.tertiaryLabel },
+            ]}
+          >
+            <Text
               style={[
-                styles.statusPill,
-                { borderColor: isOngoing ? colors.accent : colors.tertiaryLabel },
+                styles.statusPillText,
+                { color: isOngoing ? colors.accent : colors.tertiaryLabel },
               ]}
             >
-              <Text
-                style={[
-                  styles.statusPillText,
-                  { color: isOngoing ? colors.accent : colors.tertiaryLabel },
-                ]}
-              >
-                {isOngoing ? 'ONGOING' : detail.status.replace(/_/g, ' ')}
-              </Text>
-            </View>
+              {isOngoing ? 'ONGOING' : (detail.status?.replace(/_/g, ' ') ?? 'UNKNOWN')}
+            </Text>
           </View>
-
-          <View style={styles.actionsRow}>
-            <ToggleButton type="like" isActive={liked} onToggle={handleToggleLike} />
-            <ToggleButton type="watchlist" isActive={watchlisted} onToggle={handleToggleWatchlist} />
-          </View>
-
-          <Text style={[styles.overview, { color: colors.secondaryLabel }]} numberOfLines={3}>
-            {cleanDescription(detail.description) ?? ''}
-          </Text>
         </View>
 
-        <RowHeader title="Episodes" />
-        <View style={styles.episodeList}>
-          {episodes.map((episode) => (
-            <EpisodeRow
-              key={episode.id}
-              episodeNumber={episode.episode_number}
-              title={episode.title ?? ''}
-              stillPath={episode.thumbnail}
-              runtimeMinutes={null}
-              watched={!!episode.watched}
-              showSeasonPrefix={false}
-              onToggleWatched={() => handleToggleEpisodeWatched(episode)}
-              onPress={() => {}}
-            />
-          ))}
+        <View style={styles.actionsRow}>
+          <ToggleButton type="like" isActive={liked} onToggle={handleToggleLike} />
+          <ToggleButton type="watchlist" isActive={watchlisted} onToggle={handleToggleWatchlist} />
         </View>
 
-        <View style={styles.content}>
-          <Text style={[styles.sectionTitle, { color: colors.label }]}>Your Rating</Text>
-          <StarRatingControl value={localAnime?.my_rating ?? null} onChange={handleRatingChange} />
-        </View>
+        <Text style={[styles.overview, { color: colors.secondaryLabel }]} numberOfLines={3}>
+          {cleanDescription(detail.description) ?? ''}
+        </Text>
+      </View>
 
-        {cast.length > 0 && (
-          <View style={styles.section}>
-            <Text style={[styles.sectionHeading, { color: colors.label }]}>Cast</Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.castRow}
-            >
-              {cast.map((edge) => (
-                <View key={edge.node.id} style={styles.castMember}>
-                  <View
-                    style={[
-                      styles.castAvatar,
-                      { backgroundColor: colors.tertiaryBackground },
-                    ]}
-                  >
-                    {edge.node.image.medium ? (
-                      <Image
-                        source={{ uri: posterUrl(edge.node.image.medium) ?? '' }}
-                        style={StyleSheet.absoluteFill}
-                        contentFit="cover"
-                      />
-                    ) : (
-                      <SymbolView name="person.fill" size={24} tintColor={colors.secondaryLabel} />
-                    )}
-                  </View>
-                  <Text style={[styles.castName, { color: colors.label }]} numberOfLines={1}>
-                    {edge.node.name.full}
-                  </Text>
-                  <Text style={[styles.castRole, { color: colors.secondaryLabel }]} numberOfLines={1}>
-                    {edge.role}
-                  </Text>
+      <RowHeader title="Episodes" />
+    </>
+  );
+
+  const listFooter = (
+    <>
+      <View style={styles.content}>
+        <Text style={[styles.sectionTitle, { color: colors.label }]}>Your Rating</Text>
+        <StarRatingControl value={localAnime?.my_rating ?? null} onChange={handleRatingChange} />
+      </View>
+
+      {cast.length > 0 && (
+        <View style={styles.section}>
+          <Text style={[styles.sectionHeading, { color: colors.label }]}>Cast</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.castRow}
+          >
+            {cast.map((edge) => (
+              <View key={edge.node.id} style={styles.castMember}>
+                <View
+                  style={[
+                    styles.castAvatar,
+                    { backgroundColor: colors.tertiaryBackground },
+                  ]}
+                >
+                  {edge.node.image.medium ? (
+                    <Image
+                      source={{ uri: posterUrl(edge.node.image.medium) ?? '' }}
+                      style={StyleSheet.absoluteFill}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <SymbolView name="person.fill" size={24} tintColor={colors.secondaryLabel} />
+                  )}
                 </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+                <Text style={[styles.castName, { color: colors.label }]} numberOfLines={1}>
+                  {edge.node.name.full}
+                </Text>
+                <Text style={[styles.castRole, { color: colors.secondaryLabel }]} numberOfLines={1}>
+                  {edge.role}
+                </Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
 
-        {similar.length > 0 && (
-          <View style={styles.section}>
-            <RowHeader title="More Like This" />
-            <FlashList
-              horizontal
-              data={similar}
-              keyExtractor={(item) => String(item.id)}
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ paddingHorizontal: Spacing.md }}
-              ItemSeparatorComponent={() => <View style={{ width: Spacing.xs }} />}
-              renderItem={({ item }) => (
-                <CardFeedItem
-                  tmdbId={item.id}
-                  title={animeTitle(item.title)}
-                  posterPath={item.coverImage.large}
-                  releaseYear={item.startDate.year}
-                  onPress={() => router.push(`/anime/${item.id}`)}
-                />
-              )}
-            />
-          </View>
-        )}
+      {similar.length > 0 && (
+        <View style={styles.section}>
+          <RowHeader title="More Like This" />
+          <FlashList
+            horizontal
+            data={similar}
+            keyExtractor={(item) => String(item.id)}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+            ItemSeparatorComponent={() => <View style={{ width: Spacing.xs }} />}
+            renderItem={({ item }) => (
+              <CardFeedItem
+                tmdbId={item.id}
+                title={animeTitle(item.title)}
+                posterPath={item.coverImage.large}
+                releaseYear={item.startDate.year}
+                onPress={() => router.push(`/anime/${item.id}`)}
+              />
+            )}
+          />
+        </View>
+      )}
 
-        <View style={styles.content}>
-          <Text style={[styles.sectionTitle, { color: colors.label }]}>Public Review</Text>
+      <View style={styles.content}>
+        <Text style={[styles.sectionTitle, { color: colors.label }]}>Public Review</Text>
+        <TextInput
+          style={[
+            styles.reviewInput,
+            {
+              color: colors.label,
+              backgroundColor: colors.secondaryBackground,
+              borderColor: colors.tertiaryLabel,
+            },
+          ]}
+          value={reviewDraft}
+          onChangeText={setReviewDraft}
+          placeholder="Share your thoughts on this anime..."
+          placeholderTextColor={colors.secondaryLabel}
+          multiline
+          numberOfLines={4}
+          textAlignVertical="top"
+        />
+        <Pressable
+          style={[styles.postButton, { backgroundColor: colors.accent }]}
+          onPress={handlePostReview}
+          accessibilityRole="button"
+          accessibilityLabel="Post review"
+        >
+          <Text style={styles.postButtonText}>Post Review</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.content}>
+        <Text style={[styles.sectionTitle, { color: colors.label }]}>Private Diary</Text>
+
+        <View style={styles.newEntryRow}>
           <TextInput
             style={[
-              styles.reviewInput,
+              styles.dateInput,
+              {
+                color: colors.label,
+                backgroundColor: colors.secondaryBackground,
+                borderColor: dateError ? '#FF3B30' : colors.tertiaryLabel,
+              },
+            ]}
+            value={newEntryDate}
+            onChangeText={(text) => {
+              setNewEntryDate(text);
+              if (dateError) setDateError(false);
+            }}
+            placeholder="YYYY-MM-DD"
+            placeholderTextColor={colors.secondaryLabel}
+            maxLength={10}
+          />
+          <TextInput
+            style={[
+              styles.noteInput,
               {
                 color: colors.label,
                 backgroundColor: colors.secondaryBackground,
                 borderColor: colors.tertiaryLabel,
               },
             ]}
-            value={reviewDraft}
-            onChangeText={setReviewDraft}
-            placeholder="Share your thoughts on this anime..."
+            value={newEntryNote}
+            onChangeText={setNewEntryNote}
+            placeholder="Note (optional)"
             placeholderTextColor={colors.secondaryLabel}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
           />
           <Pressable
-            style={[styles.postButton, { backgroundColor: colors.accent }]}
-            onPress={handlePostReview}
+            style={[styles.newEntryButton, { backgroundColor: colors.accent }]}
+            onPress={handleAddDiaryEntry}
             accessibilityRole="button"
-            accessibilityLabel="Post review"
+            accessibilityLabel="New diary entry"
           >
-            <Text style={styles.postButtonText}>Post Review</Text>
+            <SymbolView name="plus" size={16} tintColor="#FFFFFF" weight="bold" />
           </Pressable>
         </View>
 
-        <View style={styles.content}>
-          <Text style={[styles.sectionTitle, { color: colors.label }]}>Private Diary</Text>
+        {dateError && (
+          <Text style={[styles.dateErrorText, { color: '#FF3B30' }]}>
+            Enter a valid date as YYYY-MM-DD
+          </Text>
+        )}
 
-          <View style={styles.newEntryRow}>
-            <TextInput
-              style={[
-                styles.dateInput,
-                {
-                  color: colors.label,
-                  backgroundColor: colors.secondaryBackground,
-                  borderColor: dateError ? '#FF3B30' : colors.tertiaryLabel,
-                },
-              ]}
-              value={newEntryDate}
-              onChangeText={(text) => {
-                setNewEntryDate(text);
-                if (dateError) setDateError(false);
-              }}
-              placeholder="YYYY-MM-DD"
-              placeholderTextColor={colors.secondaryLabel}
-              maxLength={10}
-            />
-            <TextInput
-              style={[
-                styles.noteInput,
-                {
-                  color: colors.label,
-                  backgroundColor: colors.secondaryBackground,
-                  borderColor: colors.tertiaryLabel,
-                },
-              ]}
-              value={newEntryNote}
-              onChangeText={setNewEntryNote}
-              placeholder="Note (optional)"
-              placeholderTextColor={colors.secondaryLabel}
-            />
-            <Pressable
-              style={[styles.newEntryButton, { backgroundColor: colors.accent }]}
-              onPress={handleAddDiaryEntry}
-              accessibilityRole="button"
-              accessibilityLabel="New diary entry"
-            >
-              <SymbolView name="plus" size={16} tintColor="#FFFFFF" weight="bold" />
-            </Pressable>
+        {logEntries.map((entry) => (
+          <View
+            key={entry.id}
+            style={[styles.diaryEntry, { borderColor: colors.tertiaryLabel }]}
+          >
+            <Text style={[styles.diaryDate, { color: colors.label }]}>{entry.watched_date}</Text>
+            {entry.note ? (
+              <Text style={[styles.diaryNote, { color: colors.secondaryLabel }]}>{entry.note}</Text>
+            ) : null}
           </View>
+        ))}
+      </View>
 
-          {dateError && (
-            <Text style={[styles.dateErrorText, { color: '#FF3B30' }]}>
-              Enter a valid date as YYYY-MM-DD
-            </Text>
-          )}
+      <View style={{ height: Spacing.xl }} />
+    </>
+  );
 
-          {logEntries.map((entry) => (
-            <View
-              key={entry.id}
-              style={[styles.diaryEntry, { borderColor: colors.tertiaryLabel }]}
-            >
-              <Text style={[styles.diaryDate, { color: colors.label }]}>{entry.watched_date}</Text>
-              {entry.note ? (
-                <Text style={[styles.diaryNote, { color: colors.secondaryLabel }]}>{entry.note}</Text>
-              ) : null}
-            </View>
-          ))}
-        </View>
-
-        <View style={{ height: Spacing.xl }} />
-      </ScrollView>
+  return (
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <FlashList
+        data={episodes}
+        keyExtractor={(episode) => String(episode.id)}
+        ListHeaderComponent={listHeader}
+        ListFooterComponent={listFooter}
+        contentContainerStyle={styles.episodeList}
+        renderItem={({ item: episode }) => (
+          <EpisodeRow
+            episodeNumber={episode.episode_number}
+            title={episode.title ?? `Episode ${episode.episode_number}`}
+            stillPath={episode.thumbnail}
+            runtimeMinutes={null}
+            watched={!!episode.watched}
+            showSeasonPrefix={false}
+            onToggleWatched={() => handleToggleEpisodeWatched(episode)}
+            onPress={() => {}}
+          />
+        )}
+      />
     </View>
   );
 }
