@@ -5,63 +5,71 @@ import { Platform, StyleSheet, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '@/context/ThemeContext';
-import { FontWeight } from '@/constants/tokens';
+
+// Stitch CineVault Modern — active tab color (Stitch "primary": #ffb4aa)
+const STITCH_PRIMARY = '#ffb4aa';
+const STITCH_INACTIVE = '#888885';
 
 export default function TabLayout() {
-  const { colorScheme, colors } = useTheme();
+  const { colorScheme } = useTheme();
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.accent,
-        tabBarInactiveTintColor: colors.secondaryLabel,
+        tabBarActiveTintColor: STITCH_PRIMARY,
+        tabBarInactiveTintColor: STITCH_INACTIVE,
         tabBarStyle: {
           position: 'absolute',
-          bottom: Platform.OS === 'ios' ? 24 : 16,
-          left: 16,
-          right: 16,
+          // Stitch: fixed bottom-6 (24px) left-1/2 -translate-x-1/2 w-[90%] max-w-md
+          bottom: Platform.OS === 'ios' ? 28 : 16,
+          left: '5%',
+          right: '5%',
           height: 64,
           borderRadius: 32,
-          borderWidth: 1,
-          borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)',
+          borderWidth: 0,
           backgroundColor: 'transparent',
-          elevation: 12,
+          elevation: 0,
           shadowColor: '#000000',
-          shadowOffset: { width: 0, height: 10 },
-          shadowOpacity: 0.45,
-          shadowRadius: 20,
-          paddingTop: 8,
-          paddingBottom: Platform.OS === 'ios' ? 8 : 6,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.4,
+          shadowRadius: 32,
+          paddingTop: 0,
+          paddingBottom: 0,
           overflow: 'hidden',
           // @ts-ignore
           borderCurve: 'continuous',
         },
         tabBarBackground: () => (
+          // Stitch: .glass { background: rgba(32,31,31,0.7); backdrop-filter: blur(40px); }
+          // shadow-[0_8px_32px_rgba(0,0,0,0.4)]
           <View style={StyleSheet.absoluteFill}>
             <BlurView
-              intensity={Platform.OS === 'ios' ? 85 : 100}
-              tint={colorScheme === 'dark' ? 'dark' : 'light'}
+              intensity={Platform.OS === 'ios' ? 80 : 100}
+              tint="dark"
               style={StyleSheet.absoluteFill}
             />
             <View
               style={[
                 StyleSheet.absoluteFill,
                 {
-                  backgroundColor:
-                    colorScheme === 'dark'
-                      ? 'rgba(26, 25, 25, 0.65)'
-                      : 'rgba(255, 255, 255, 0.70)',
+                  backgroundColor: 'rgba(32, 31, 31, 0.70)',
                 },
               ]}
             />
           </View>
         ),
         tabBarLabelStyle: {
+          // Stitch: text-[10px] font-label-sm uppercase tracking-wider
           fontSize: 10,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.3,
+          fontWeight: '500',
+          letterSpacing: 1.2,
+          textTransform: 'uppercase',
           marginTop: 2,
+        },
+        tabBarItemStyle: {
+          height: 64,
+          paddingVertical: 0,
         },
       }}
     >
@@ -77,7 +85,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <SymbolView
               name={focused ? 'house.fill' : 'house'}
-              size={22}
+              size={24}
               tintColor={color}
               weight={focused ? 'bold' : 'regular'}
             />
@@ -96,7 +104,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <SymbolView
               name="magnifyingglass"
-              size={22}
+              size={24}
               tintColor={color}
               weight={focused ? 'heavy' : 'medium'}
             />
@@ -115,7 +123,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <SymbolView
               name={focused ? 'rectangle.stack.fill' : 'rectangle.stack'}
-              size={22}
+              size={24}
               tintColor={color}
               weight={focused ? 'bold' : 'regular'}
             />
@@ -152,7 +160,7 @@ export default function TabLayout() {
           tabBarIcon: ({ color, focused }) => (
             <SymbolView
               name={focused ? 'person.crop.circle.fill' : 'person.crop.circle'}
-              size={22}
+              size={24}
               tintColor={color}
               weight={focused ? 'bold' : 'regular'}
             />

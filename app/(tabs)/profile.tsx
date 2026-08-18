@@ -89,47 +89,49 @@ export default function ProfileScreen() {
         {/* User Hero Section (Centered Avatar with Glow & Edit Badge) */}
         <View style={styles.heroSection}>
           <View style={styles.avatarWrapper}>
-            {/* Ambient Glow */}
-            <View style={[styles.avatarGlow, { backgroundColor: colors.accent }]} />
+            {/* Stitch: absolute -inset-1 bg-gradient-to-tr from-primary to-tertiary rounded-full blur opacity-20 */}
+            <View style={[styles.avatarGlow, { backgroundColor: '#ffb4aa' }]} />
             <Image
               source={{ uri: PROFILE_AVATAR_URL }}
-              style={[styles.largeAvatar, { borderColor: 'rgba(255, 255, 255, 0.15)', borderWidth: 2 }]}
+              // Stitch: ring-2 ring-surface-variant z-10
+              style={[styles.largeAvatar, { borderColor: '#353534', borderWidth: 2 }]}
               contentFit="cover"
               transition={200}
             />
-            {/* Edit Pencil Badge */}
+            {/* Edit Pencil Badge — Stitch: w-8 h-8 bg-surface-container-highest rounded-full ring-2 ring-background */}
             <TouchableOpacity
               style={[
                 styles.editPencilBadge,
                 {
-                  backgroundColor: colorScheme === 'dark' ? '#2A2A2A' : '#E5E2E1',
-                  borderColor: colors.background,
+                  backgroundColor: '#353534', // surface-container-highest
+                  borderColor: '#131313', // background
                 },
               ]}
               activeOpacity={0.8}
               onPress={() => setShowAppearanceModal(!showAppearanceModal)}
             >
-              <SymbolView name="pencil" size={13} tintColor={colors.label} weight="bold" />
+              <SymbolView name="pencil" size={13} tintColor="#e5e2e1" weight="bold" />
             </TouchableOpacity>
           </View>
 
-          <Text style={[styles.userName, { color: colors.label }]}>Alex Mercer</Text>
+          {/* Stitch: font-headline-md text-headline-md (24px/600) */}
+          <Text style={[styles.userName, { color: '#e5e2e1' }]}>Alex Mercer</Text>
 
+          {/* Stitch: inline-flex items-center gap-1 mt-1 bg-surface-variant/50 px-3 py-1 rounded-full backdrop-blur-sm */}
           <View
             style={[
               styles.roleBadge,
               {
-                backgroundColor:
-                  colorScheme === 'dark'
-                    ? 'rgba(53, 53, 52, 0.65)'
-                    : 'rgba(230, 230, 230, 0.85)',
-                borderColor: 'rgba(255, 255, 255, 0.08)',
-                borderWidth: 1,
+                backgroundColor: 'rgba(53, 53, 52, 0.5)',
+                // No border — Stitch has border-none
+                borderWidth: 0,
               },
             ]}
           >
+            {/* Stitch: text-tertiary-container (#0072d7) FILL=1 stars icon */}
             <SymbolView name="star.circle.fill" size={14} tintColor="#0072D7" weight="bold" />
-            <Text style={[styles.roleBadgeText, { color: colors.secondaryLabel }]}>MOVIE CRITIC</Text>
+            {/* Stitch: font-label-sm text-on-surface-variant uppercase tracking-widest */}
+            <Text style={[styles.roleBadgeText, { color: '#e9bcb6', letterSpacing: 2, textTransform: 'uppercase' }]}>Movie Critic</Text>
           </View>
         </View>
 
@@ -142,10 +144,9 @@ export default function ProfileScreen() {
               style={[
                 styles.statCard,
                 {
-                  backgroundColor:
-                    colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
-                  borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: colorScheme === 'dark' ? 0 : 1,
+                  // Stitch: bg-surface-container p-4 rounded-xl
+                  backgroundColor: '#201f1f',
+                  borderWidth: 0,
                 },
               ]}
             >
@@ -158,10 +159,9 @@ export default function ProfileScreen() {
               style={[
                 styles.statCard,
                 {
-                  backgroundColor:
-                    colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
-                  borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: colorScheme === 'dark' ? 0 : 1,
+                  // Stitch: bg-surface-container p-4 rounded-xl
+                  backgroundColor: '#201f1f',
+                  borderWidth: 0,
                 },
               ]}
             >
@@ -174,10 +174,9 @@ export default function ProfileScreen() {
               style={[
                 styles.statCard,
                 {
-                  backgroundColor:
-                    colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
-                  borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: colorScheme === 'dark' ? 0 : 1,
+                  // Stitch: bg-surface-container p-4 rounded-xl
+                  backgroundColor: '#201f1f',
+                  borderWidth: 0,
                 },
               ]}
             >
@@ -190,10 +189,9 @@ export default function ProfileScreen() {
               style={[
                 styles.statCard,
                 {
-                  backgroundColor:
-                    colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
-                  borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
-                  borderWidth: colorScheme === 'dark' ? 0 : 1,
+                  // Stitch: bg-surface-container p-4 rounded-xl
+                  backgroundColor: '#201f1f',
+                  borderWidth: 0,
                 },
               ]}
             >
