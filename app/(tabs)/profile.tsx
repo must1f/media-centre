@@ -331,6 +331,26 @@ export default function ProfileScreen() {
                 <Text style={[styles.quickAccessSub, { color: colors.secondaryLabel }]}>12 badges</Text>
               </View>
             </AnimatedPressable>
+
+            {/* Your Year recap */}
+            <AnimatedPressable
+              style={[
+                styles.quickAccessCard,
+                {
+                  backgroundColor: colorScheme === 'dark' ? '#201F1F' : 'rgba(255, 255, 255, 0.90)',
+                  borderColor: colorScheme === 'dark' ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+                  borderWidth: colorScheme === 'dark' ? 0 : 1,
+                },
+              ]}
+              onPress={() => router.push('/year-recap')}
+              scaleTo={0.94}
+            >
+              <SymbolView name="sparkles" size={20} tintColor={colors.accent} weight="bold" />
+              <View style={styles.quickAccessMeta}>
+                <Text style={[styles.quickAccessTitle, { color: colors.label }]}>Your Year</Text>
+                <Text style={[styles.quickAccessSub, { color: colors.secondaryLabel }]}>{new Date().getFullYear()} recap</Text>
+              </View>
+            </AnimatedPressable>
           </View>
         </View>
 
@@ -392,6 +412,23 @@ export default function ProfileScreen() {
                   <Text style={[styles.systemRowTitle, { color: colors.label }]}>Subscription</Text>
                   <Text style={[styles.systemSub, { color: '#FFB4AA' }]}>Pro Plan</Text>
                 </View>
+              </View>
+              <SymbolView name="chevron.right" size={14} tintColor={colors.secondaryLabel} weight="semibold" />
+            </TouchableOpacity>
+
+            <View style={[styles.divider, { backgroundColor: 'rgba(255, 255, 255, 0.06)' }]} />
+
+            {/* Import & Backup */}
+            <TouchableOpacity
+              style={styles.systemRow}
+              onPress={() => router.push('/settings/data')}
+              activeOpacity={0.75}
+            >
+              <View style={styles.systemLeft}>
+                <View style={[styles.systemIconBadge, { backgroundColor: '#353534' }]}>
+                  <SymbolView name="arrow.up.arrow.down.circle" size={17} tintColor="#A7C8FF" weight="medium" />
+                </View>
+                <Text style={[styles.systemRowTitle, { color: colors.label }]}>Import & Backup</Text>
               </View>
               <SymbolView name="chevron.right" size={14} tintColor={colors.secondaryLabel} weight="semibold" />
             </TouchableOpacity>
