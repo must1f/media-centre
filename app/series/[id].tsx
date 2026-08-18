@@ -42,6 +42,7 @@ export default function SeriesDetailScreen() {
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [newEntryDate, setNewEntryDate] = useState(new Date().toISOString().slice(0, 10));
   const [newEntryNote, setNewEntryNote] = useState('');
+  const [dateError, setDateError] = useState(false);
 
   const loadSeason = useCallback(async (seasonNumber: number, seriesId: number) => {
     let season = getSeasonsForSeries(seriesId).find((s) => s.season_number === seasonNumber) ?? null;
@@ -145,8 +146,26 @@ export default function SeriesDetailScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
+  function isValidDate(value: string): boolean {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+    if (!match) return false;
+    const year = parseInt(match[1], 10);
+    const month = parseInt(match[2], 10);
+    const day = parseInt(match[3], 10);
+    const date = new Date(year, month - 1, day);
+    return (
+      date.getFullYear() === year &&
+      date.getMonth() === month - 1 &&
+      date.getDate() === day
+    );
+  }
+
   function handleAddDiaryEntry() {
-    if (!newEntryDate) return;
+    if (!newEntryDate || !isValidDate(newEntryDate)) {
+      setDateError(true);
+      return;
+    }
+    setDateError(false);
     logWatch(tmdbId, 'series', newEntryDate, newEntryNote.trim() || null);
     setLogEntries(getLogEntriesForMedia(tmdbId, 'series'));
     setNewEntryNote('');
@@ -361,11 +380,14 @@ export default function SeriesDetailScreen() {
                 {
                   color: colors.label,
                   backgroundColor: colors.secondaryBackground,
-                  borderColor: colors.tertiaryLabel,
+                  borderColor: dateError ? '#FF3B30' : colors.tertiaryLabel,
                 },
               ]}
               value={newEntryDate}
-              onChangeText={setNewEntryDate}
+              onChangeText={(text) => {
+                setNewEntryDate(text);
+                if (dateError) setDateError(false);
+              }}
               placeholder="YYYY-MM-DD"
               placeholderTextColor={colors.secondaryLabel}
               maxLength={10}
@@ -393,6 +415,12 @@ export default function SeriesDetailScreen() {
               <SymbolView name="plus" size={16} tintColor="#FFFFFF" weight="bold" />
             </Pressable>
           </View>
+
+          {dateError && (
+            <Text style={[styles.dateErrorText, { color: '#FF3B30' }]}>
+              Enter a valid date as YYYY-MM-DD
+            </Text>
+          )}
 
           {logEntries.map((entry) => (
             <View
@@ -485,6 +513,10 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  dateErrorText: {
+    fontSize: FontSize.caption1,
+    marginTop: Spacing.xs,
   },
   diaryEntry: {
     borderTopWidth: StyleSheet.hairlineWidth,
