@@ -259,6 +259,8 @@ export async function importLetterboxdData(
         release_year: year,
         genres: null,
         overview: null,
+        collection_id: null,
+        collection_name: null,
       });
     }
     processed += 1;
@@ -432,6 +434,8 @@ export function restoreBackup(doc: unknown): RestoreSummary {
       release_year: typeof raw.release_year === 'number' ? raw.release_year : null,
       genres: typeof raw.genres === 'string' ? raw.genres : null,
       overview: typeof raw.overview === 'string' ? raw.overview : null,
+      collection_id: typeof raw.collection_id === 'number' ? raw.collection_id : null,
+      collection_name: typeof raw.collection_name === 'string' ? raw.collection_name : null,
     });
 
     const rating = typeof raw.my_rating === 'number' ? raw.my_rating : null;

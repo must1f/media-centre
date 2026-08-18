@@ -405,6 +405,7 @@ describe('restoreBackup', () => {
           my_review: null,
           collection_id: 99,
           collection_name: 'Future Franchise',
+          some_future_field: 'unknown to this app version',
         },
       ],
       logEntries: [],
@@ -414,7 +415,10 @@ describe('restoreBackup', () => {
 
     expect(() => restoreBackup(doc)).not.toThrow();
     expect(mockUpsertMovie).toHaveBeenCalledWith(
-      expect.not.objectContaining({ collection_id: expect.anything() }),
+      expect.not.objectContaining({ some_future_field: expect.anything() }),
+    );
+    expect(mockUpsertMovie).toHaveBeenCalledWith(
+      expect.objectContaining({ collection_id: 99, collection_name: 'Future Franchise' }),
     );
   });
 
