@@ -24,10 +24,11 @@ import { sortMovies, primaryGenreName, SORT_OPTIONS, type SortOption } from '@/s
 // DB CRUD functions
 import { getAllCachedMovies, type Movie } from '@/db/movies';
 import { getAllCachedSeries, type Series } from '@/db/series';
+import { getAllCachedAnime, type Anime } from '@/db/anime';
 import { getAllLogEntries, type LogEntry } from '@/db/logEntries';
 import { getWatchlistIds } from '@/db/watchlist';
 
-type FilterCategory = 'all' | 'movies' | 'series' | 'diary' | 'watchlist' | 'ratings';
+type FilterCategory = 'all' | 'movies' | 'series' | 'anime' | 'diary' | 'watchlist' | 'ratings';
 type DisplayMode = 'reels' | 'grid' | 'list';
 
 export default function VaultScreen() {
@@ -42,18 +43,22 @@ export default function VaultScreen() {
   // Data State
   const [movies, setMovies] = useState<Movie[]>([]);
   const [series, setSeries] = useState<Series[]>([]);
+  const [anime, setAnime] = useState<Anime[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [watchlistIds, setWatchlistIds] = useState<number[]>([]);
   const [watchlistSeriesIds, setWatchlistSeriesIds] = useState<number[]>([]);
+  const [watchlistAnimeIds, setWatchlistAnimeIds] = useState<number[]>([]);
 
   // Refresh data every time the screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       setMovies(getAllCachedMovies());
       setSeries(getAllCachedSeries());
+      setAnime(getAllCachedAnime());
       setLogEntries(getAllLogEntries());
       setWatchlistIds(getWatchlistIds('movie'));
       setWatchlistSeriesIds(getWatchlistIds('series'));
+      setWatchlistAnimeIds(getWatchlistIds('anime'));
     }, [])
   );
 
@@ -76,6 +81,14 @@ export default function VaultScreen() {
   const watchlistSeriesSet = new Set(watchlistSeriesIds);
   const watchlistSeries = series.filter((s) => watchlistSeriesSet.has(s.tmdb_id));
 
+  const watchedAnimeIds = new Set(
+    logEntries.filter((l) => l.media_type === 'anime').map((l) => l.movie_id)
+  );
+  const watchedAnime = anime.filter((a) => watchedAnimeIds.has(a.anilist_id));
+
+  const watchlistAnimeSet = new Set(watchlistAnimeIds);
+  const watchlistAnime = anime.filter((a) => watchlistAnimeSet.has(a.anilist_id));
+
   // Apply the active sort (falling back to sensible defaults per section when none chosen)
   const watchedMovies = sortBy ? sortMovies(watchedMoviesBase, sortBy, logEntries) : watchedMoviesBase;
   const ratedMovies = sortBy
@@ -88,6 +101,7 @@ export default function VaultScreen() {
   const watchlistItems = [
     ...watchlistMovies.map((m) => ({ ...m, mediaType: 'movie' as const })),
     ...watchlistSeries.map((s) => ({ ...s, mediaType: 'series' as const })),
+    ...watchlistAnime.map((a) => ({ ...a, mediaType: 'anime' as const })),
   ];
 
   const diaryItemsBase = logEntries.map((log) => {
@@ -123,7 +137,9 @@ export default function VaultScreen() {
       })
     : diaryItemsBase;
 
-  const totalVaultCount = movies.length + watchlistMoviesBase.length + watchlistSeries.length + series.length;
+  const totalVaultCount =
+    movies.length + watchlistMoviesBase.length + watchlistSeries.length + series.length +
+    watchlistAnime.length + anime.length;
 
   // The single data set currently on screen for grid/list mode, respecting both the active filter and sort.
   const listModeData: any[] =
@@ -137,6 +153,10 @@ export default function VaultScreen() {
       ? watchedSeries.length > 0
         ? watchedSeries
         : series
+      : activeFilter === 'anime'
+      ? watchedAnime.length > 0
+        ? watchedAnime
+        : anime
       : watchedMovies.length > 0
       ? watchedMovies
       : sortedMovies;
@@ -146,9 +166,12 @@ export default function VaultScreen() {
   };
 
   const navigateToItem = (item: any) => {
-    const mediaType = item.mediaType ?? (activeFilter === 'series' ? 'series' : 'movie');
+    const mediaType =
+      item.mediaType ?? (activeFilter === 'series' ? 'series' : activeFilter === 'anime' ? 'anime' : 'movie');
     if (mediaType === 'series') {
       router.push(`/series/${item.tmdb_id}`);
+    } else if (mediaType === 'anime') {
+      router.push(`/anime/${item.anilist_id}`);
     } else {
       navigateToDetail(item.tmdb_id ?? item.tmdbId);
     }
@@ -158,6 +181,7 @@ export default function VaultScreen() {
     { id: 'all', label: 'All Saves' },
     { id: 'movies', label: 'Watched' },
     { id: 'series', label: 'TV Shows' },
+    { id: 'anime', label: 'Anime' },
     { id: 'watchlist', label: 'Watchlist', icon: 'bookmark.fill' },
     { id: 'ratings', label: 'Ratings', icon: 'star.fill' },
     { id: 'diary', label: 'Diary', icon: 'calendar' },
@@ -426,6 +450,31 @@ export default function VaultScreen() {
             </View>
           )}
 
+          {/* Watched Anime Reel */}
+          {watchedAnime.length > 0 && (
+            <View style={styles.reelSection}>
+              <RowHeader title="Anime Watched" onSeeAll={() => setActiveFilter('anime')} />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+              >
+                {watchedAnime.map((show) => (
+                  <View key={show.anilist_id} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
+                    <PosterGridCell
+                      tmdbId={show.anilist_id}
+                      title={show.title}
+                      posterPath={show.poster_path}
+                      releaseYear={show.start_year}
+                      rating={show.my_rating}
+                      onPress={() => router.push(`/anime/${show.anilist_id}`)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           {/* Watchlist Reel */}
           {watchlistItems.length > 0 && (
             <View style={styles.reelSection}>
@@ -436,12 +485,15 @@ export default function VaultScreen() {
                 contentContainerStyle={{ paddingHorizontal: Spacing.md }}
               >
                 {watchlistItems.map((item) => (
-                  <View key={`${item.mediaType}-${item.tmdb_id}`} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
+                  <View
+                    key={`${item.mediaType}-${(item as any).tmdb_id ?? (item as any).anilist_id}`}
+                    style={{ width: 130, marginRight: Spacing.xs + 2 }}
+                  >
                     <PosterGridCell
-                      tmdbId={item.tmdb_id}
+                      tmdbId={(item as any).tmdb_id ?? (item as any).anilist_id}
                       title={(item as any).title ?? (item as any).name}
                       posterPath={item.poster_path}
-                      releaseYear={(item as any).release_year ?? (item as any).first_air_year}
+                      releaseYear={(item as any).release_year ?? (item as any).first_air_year ?? (item as any).start_year}
                       rating={item.my_rating}
                       onPress={() => navigateToItem(item)}
                     />
@@ -509,7 +561,7 @@ export default function VaultScreen() {
           keyExtractor={(item: any) =>
             item.logId != null
               ? `log-${item.logId}`
-              : `${item.mediaType ?? (activeFilter === 'series' ? 'series' : 'movie')}-${item.tmdb_id ?? item.tmdbId}`
+              : `${item.mediaType ?? (activeFilter === 'series' ? 'series' : activeFilter === 'anime' ? 'anime' : 'movie')}-${item.tmdb_id ?? item.anilist_id ?? item.tmdbId}`
           }
           contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, paddingBottom: 130 }}
           ItemSeparatorComponent={() => <View style={{ height: Spacing.xs }} />}
@@ -539,7 +591,7 @@ export default function VaultScreen() {
               keyExtractor={(item: any) =>
                 item.logId != null
                   ? `log-${item.logId}`
-                  : `${item.mediaType ?? (activeFilter === 'series' ? 'series' : 'movie')}-${item.tmdb_id ?? item.tmdbId}`
+                  : `${item.mediaType ?? (activeFilter === 'series' ? 'series' : activeFilter === 'anime' ? 'anime' : 'movie')}-${item.tmdb_id ?? item.anilist_id ?? item.tmdbId}`
               }
               contentContainerStyle={{ paddingBottom: 130 }}
               renderItem={({ item, index }: { item: any; index: number }) => (
