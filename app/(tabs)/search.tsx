@@ -26,9 +26,12 @@ import {
   type TmdbGenre,
   type TmdbMovie,
 } from '@/services/tmdb';
+import { searchSeries } from '@/services/tmdbTv';
 import { Image } from 'expo-image';
 
 type Mode = 'idle' | 'genre' | 'search';
+
+type SearchResult = TmdbMovie & { mediaType: 'movie' | 'series' };
 
 export default function SearchScreen() {
   const { colors, colorScheme } = useTheme();
@@ -37,7 +40,7 @@ export default function SearchScreen() {
   const [selectedGenreName, setSelectedGenreName] = useState<string>('');
   const [genres, setGenres] = useState<TmdbGenre[]>([]);
   const [trendingSearches, setTrendingSearches] = useState<TmdbMovie[]>([]);
-  const [results, setResults] = useState<TmdbMovie[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -68,8 +71,27 @@ export default function SearchScreen() {
       setLoading(true);
       setError(false);
       try {
-        const res = await searchMovies(query.trim());
-        setResults(res);
+        const [movieSettled, seriesSettled] = await Promise.allSettled([
+          searchMovies(query.trim()),
+          searchSeries(query.trim()),
+        ]);
+        if (movieSettled.status === 'rejected' && seriesSettled.status === 'rejected') {
+          throw movieSettled.reason;
+        }
+        const movieResults = movieSettled.status === 'fulfilled' ? movieSettled.value : [];
+        const seriesResults = seriesSettled.status === 'fulfilled' ? seriesSettled.value : [];
+        if (movieSettled.status === 'rejected') console.error(movieSettled.reason);
+        if (seriesSettled.status === 'rejected') console.error(seriesSettled.reason);
+        const combined: SearchResult[] = [
+          ...movieResults.map((m) => ({ ...m, mediaType: 'movie' as const })),
+          ...seriesResults.map((s) => ({
+            ...s,
+            mediaType: 'series' as const,
+            title: s.name,
+            release_date: s.first_air_date,
+          })),
+        ];
+        setResults(combined);
       } catch (err) {
         console.error(err);
         setError(true);
@@ -87,7 +109,7 @@ export default function SearchScreen() {
     setError(false);
     try {
       const res = await discoverByGenre(genre.id);
-      setResults(res);
+      setResults(res.map((m) => ({ ...m, mediaType: 'movie' as const })));
     } catch (err) {
       console.error(err);
       setError(true);
@@ -303,7 +325,7 @@ export default function SearchScreen() {
           {results.length === 0 ? (
             <View style={styles.emptyResults}>
               <SymbolView name="film" size={48} tintColor={colors.secondaryLabel} weight="light" />
-              <Text style={[styles.emptyResultsText, { color: colors.label }]}>No movies found</Text>
+              <Text style={[styles.emptyResultsText, { color: colors.label }]}>No results found</Text>
               <Text style={[styles.emptyResultsSub, { color: colors.secondaryLabel }]}>
                 Try searching for a different title or keyword.
               </Text>
@@ -312,7 +334,7 @@ export default function SearchScreen() {
             <FlashList
               data={results}
               numColumns={3}
-              keyExtractor={(item) => String(item.id)}
+              keyExtractor={(item) => `${item.mediaType}-${item.id}`}
               contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, paddingBottom: 130 }}
               ItemSeparatorComponent={() => <View style={{ height: Spacing.xs }} />}
               renderItem={({ item }) => (
@@ -323,7 +345,12 @@ export default function SearchScreen() {
                   releaseYear={
                     item.release_date ? parseInt(item.release_date.slice(0, 4), 10) : null
                   }
-                  onPress={() => router.push(`/movie/${item.id}`)}
+                  episodeTag={item.mediaType === 'series' ? 'TV' : 'MOVIE'}
+                  onPress={() =>
+                    router.push(
+                      item.mediaType === 'series' ? `/series/${item.id}` : `/movie/${item.id}`
+                    )
+                  }
                   style={{ marginHorizontal: Spacing.xs / 2 }}
                 />
               )}

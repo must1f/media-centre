@@ -1,4 +1,4 @@
-import { getLikedMovieIds } from '@/db/likes';
+import { getLikedIds } from '@/db/likes';
 import { getAllLogEntries } from '@/db/logEntries';
 import { getAllCachedMovies, getRatedMovies } from '@/db/movies';
 import { discoverByGenre, getRecommendations, getTrending, type TmdbMovie } from './tmdb';
@@ -8,11 +8,15 @@ import { discoverByGenre, getRecommendations, getTrending, type TmdbMovie } from
  * highest-rated and liked movies, deduplicating already-logged titles.
  */
 export async function getSuggestedForYou(): Promise<TmdbMovie[]> {
-  const loggedIds = new Set(getAllLogEntries().map((e) => e.movie_id));
+  const loggedIds = new Set(
+    getAllLogEntries()
+      .filter((e) => e.media_type === 'movie')
+      .map((e) => e.movie_id),
+  );
 
   // Seed from top-rated movies (rating >= 4) and liked movies
   const rated = getRatedMovies().filter((m) => (m.my_rating ?? 0) >= 4);
-  const likedIds = getLikedMovieIds();
+  const likedIds = getLikedIds('movie');
   const seedIds = [
     ...rated.map((m) => m.tmdb_id),
     ...likedIds,
@@ -49,7 +53,11 @@ export async function getSuggestedForYou(): Promise<TmdbMovie[]> {
  * watches *less* often, to diversify rather than reinforce existing habits.
  */
 export async function getDiscoverSomethingNew(): Promise<TmdbMovie[]> {
-  const loggedIds = new Set(getAllLogEntries().map((e) => e.movie_id));
+  const loggedIds = new Set(
+    getAllLogEntries()
+      .filter((e) => e.media_type === 'movie')
+      .map((e) => e.movie_id),
+  );
   const cachedMovies = getAllCachedMovies();
 
   // Tally genre frequency from cached movies that have been logged

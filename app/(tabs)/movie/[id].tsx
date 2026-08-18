@@ -36,7 +36,7 @@ import { getMovieDetails, type TmdbMovieDetail, type TmdbMovie } from '@/service
 import { upsertMovie, getMovie, type Movie } from '@/db/movies';
 import { isLiked, toggleLike } from '@/db/likes';
 import { isOnWatchlist, toggleWatchlist } from '@/db/watchlist';
-import { hasWatched, logWatch, getLogEntriesForMovie } from '@/db/logEntries';
+import { hasWatched, logWatch, getLogEntriesForMedia } from '@/db/logEntries';
 import { getFranchiseRow, type FranchiseRow } from '@/services/franchise';
 import { QuickLogSheet } from '@/components/QuickLogSheet';
 
@@ -93,14 +93,14 @@ export default function MovieDetailScreen() {
       });
 
       setLocalMovie(getMovie(tmdbId));
-      setLiked(isLiked(tmdbId));
-      setWatchlisted(isOnWatchlist(tmdbId));
+      setLiked(isLiked(tmdbId, 'movie'));
+      setWatchlisted(isOnWatchlist(tmdbId, 'movie'));
 
       getFranchiseRow(data)
         .then((row) => setFranchiseRow(row ? { ...row, movies: row.movies.filter((m) => m.id !== tmdbId) } : null))
         .catch(() => setFranchiseRow(null));
 
-      setWatchCount(getLogEntriesForMovie(tmdbId).length);
+      setWatchCount(getLogEntriesForMedia(tmdbId, 'movie').length);
     } catch {
       setError(true);
     } finally {
@@ -119,13 +119,13 @@ export default function MovieDetailScreen() {
   }, [load]);
 
   function handleLikeToggle() {
-    const next = toggleLike(tmdbId);
+    const next = toggleLike(tmdbId, 'movie');
     setLiked(next);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
 
   function handleWatchlistToggle() {
-    const next = toggleWatchlist(tmdbId);
+    const next = toggleWatchlist(tmdbId, 'movie');
     setWatchlisted(next);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }
@@ -144,7 +144,7 @@ export default function MovieDetailScreen() {
 
   function handleLogChanged() {
     setLocalMovie(getMovie(tmdbId));
-    setWatchCount(getLogEntriesForMovie(tmdbId).length);
+    setWatchCount(getLogEntriesForMedia(tmdbId, 'movie').length);
   }
 
   function handleLogDismiss() {
@@ -154,10 +154,10 @@ export default function MovieDetailScreen() {
 
   function handleRewatch() {
     const today = new Date().toISOString().slice(0, 10);
-    logWatch(tmdbId, today);
+    logWatch(tmdbId, 'movie', today);
 
     setLocalMovie(getMovie(tmdbId));
-    setWatchCount(getLogEntriesForMovie(tmdbId).length);
+    setWatchCount(getLogEntriesForMedia(tmdbId, 'movie').length);
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     rewatchScale.value = withSequence(
@@ -532,7 +532,7 @@ export default function MovieDetailScreen() {
                       title={item.title}
                       posterPath={item.poster_path}
                       releaseYear={item.release_date ? parseInt(item.release_date.slice(0, 4), 10) : null}
-                      watched={hasWatched(item.id)}
+                      watched={hasWatched(item.id, 'movie')}
                       onPress={() => router.push(`/movie/${item.id}`)}
                     />
                   )}

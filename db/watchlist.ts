@@ -1,41 +1,44 @@
 import db from './client';
 
-/** Add a movie to the watchlist. Safe to call if already present (ignored). */
-export function addToWatchlist(movieId: number): void {
+export type MediaType = 'movie' | 'series';
+
+/** Add an item to the watchlist. Safe to call if already present (ignored). */
+export function addToWatchlist(mediaId: number, mediaType: MediaType): void {
   db.runSync(
-    `INSERT OR IGNORE INTO WatchlistItem (movie_id, added_at) VALUES (?, datetime('now'))`,
-    [movieId],
+    `INSERT OR IGNORE INTO WatchlistItem (movie_id, media_type, added_at) VALUES (?, ?, datetime('now'))`,
+    [mediaId, mediaType],
   );
 }
 
-/** Remove a movie from the watchlist. */
-export function removeFromWatchlist(movieId: number): void {
-  db.runSync('DELETE FROM WatchlistItem WHERE movie_id = ?', [movieId]);
+/** Remove an item from the watchlist. */
+export function removeFromWatchlist(mediaId: number, mediaType: MediaType): void {
+  db.runSync('DELETE FROM WatchlistItem WHERE movie_id = ? AND media_type = ?', [mediaId, mediaType]);
 }
 
-/** Is this movie currently on the watchlist? */
-export function isOnWatchlist(movieId: number): boolean {
+/** Is this item currently on the watchlist? */
+export function isOnWatchlist(mediaId: number, mediaType: MediaType): boolean {
   const row = db.getFirstSync<{ movie_id: number }>(
-    'SELECT movie_id FROM WatchlistItem WHERE movie_id = ?',
-    [movieId],
+    'SELECT movie_id FROM WatchlistItem WHERE movie_id = ? AND media_type = ?',
+    [mediaId, mediaType],
   );
   return !!row;
 }
 
-/** All watchlisted movie IDs, most recently added first. */
-export function getWatchlistIds(): number[] {
+/** All watchlisted ids of a given media type, most recently added first. */
+export function getWatchlistIds(mediaType: MediaType): number[] {
   const rows = db.getAllSync<{ movie_id: number }>(
-    'SELECT movie_id FROM WatchlistItem ORDER BY added_at DESC',
+    'SELECT movie_id FROM WatchlistItem WHERE media_type = ? ORDER BY added_at DESC',
+    [mediaType],
   );
   return rows.map((r) => r.movie_id);
 }
 
 /** Toggle watchlist state. Returns the new state (true = on watchlist). */
-export function toggleWatchlist(movieId: number): boolean {
-  if (isOnWatchlist(movieId)) {
-    removeFromWatchlist(movieId);
+export function toggleWatchlist(mediaId: number, mediaType: MediaType): boolean {
+  if (isOnWatchlist(mediaId, mediaType)) {
+    removeFromWatchlist(mediaId, mediaType);
     return false;
   }
-  addToWatchlist(movieId);
+  addToWatchlist(mediaId, mediaType);
   return true;
 }

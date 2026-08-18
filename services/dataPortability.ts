@@ -8,9 +8,9 @@
  */
 import { searchMovies, releaseYear } from '@/services/tmdb';
 import { upsertMovie, setRating, getAllCachedMovies, type Movie } from '@/db/movies';
-import { logWatch, getAllLogEntries, getLogEntriesForMovie, type LogEntry } from '@/db/logEntries';
+import { logWatch, getAllLogEntries, getLogEntriesForMedia, type LogEntry } from '@/db/logEntries';
 import { addToWatchlist, getWatchlistIds } from '@/db/watchlist';
-import { likeMovie, getLikedMovieIds } from '@/db/likes';
+import { likeMedia, getLikedIds } from '@/db/likes';
 
 // ─── CSV parsing (dependency-free) ───────────────────────────────────
 
@@ -310,9 +310,9 @@ export async function importLetterboxdData(
     const dedupeKey = `${tmdbId}|${watchedDate}`;
     if (seenWatch.has(dedupeKey)) continue;
     seenWatch.add(dedupeKey);
-    const alreadyLogged = getLogEntriesForMovie(tmdbId).some((e) => e.watched_date === watchedDate);
+    const alreadyLogged = getLogEntriesForMedia(tmdbId, 'movie').some((e) => e.watched_date === watchedDate);
     if (alreadyLogged) continue;
-    logWatch(tmdbId, watchedDate);
+    logWatch(tmdbId, 'movie', watchedDate);
     logEntriesImported += 1;
   }
 
@@ -370,8 +370,8 @@ export function buildBackup(): BackupDocument {
     exportedAt: new Date().toISOString(),
     movies: getAllCachedMovies(),
     logEntries: getAllLogEntries(),
-    watchlistMovieIds: getWatchlistIds(),
-    likedMovieIds: getLikedMovieIds(),
+    watchlistMovieIds: getWatchlistIds('movie'),
+    likedMovieIds: getLikedIds('movie'),
   };
 }
 
@@ -452,28 +452,28 @@ export function restoreBackup(doc: unknown): RestoreSummary {
       summary.errors.push('Skipped a log entry row with a missing movie_id/watched_date.');
       continue;
     }
-    const alreadyLogged = getLogEntriesForMovie(raw.movie_id).some(
+    const alreadyLogged = getLogEntriesForMedia(raw.movie_id, 'movie').some(
       (e) => e.watched_date === raw.watched_date,
     );
     if (alreadyLogged) {
       summary.logEntriesSkippedDuplicate += 1;
       continue;
     }
-    logWatch(raw.movie_id, raw.watched_date);
+    logWatch(raw.movie_id, 'movie', raw.watched_date);
     summary.logEntriesRestored += 1;
   }
 
   const watchlistIds = Array.isArray(doc.watchlistMovieIds) ? doc.watchlistMovieIds : [];
   for (const id of watchlistIds) {
     if (typeof id !== 'number') continue;
-    addToWatchlist(id);
+    addToWatchlist(id, 'movie');
     summary.watchlistRestored += 1;
   }
 
   const likedIds = Array.isArray(doc.likedMovieIds) ? doc.likedMovieIds : [];
   for (const id of likedIds) {
     if (typeof id !== 'number') continue;
-    likeMovie(id);
+    likeMedia(id, 'movie');
     summary.likesRestored += 1;
   }
 

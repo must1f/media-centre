@@ -28,6 +28,8 @@ interface CardFeedItemProps {
   rating?: number | null;
   /** Optional numbered badge (e.g. 1-10 for Top 10 row) */
   badge?: number;
+  /** Optional episode tag badge (e.g. "S3E12") shown opposite the rank badge */
+  episodeTag?: string;
   /** Shows a small "already watched" checkmark overlay (e.g. for the franchise row) */
   watched?: boolean;
   onPress: () => void;
@@ -45,6 +47,7 @@ export function CardFeedItem({
   genres,
   rating,
   badge,
+  episodeTag,
   watched,
   onPress,
   style,
@@ -125,6 +128,13 @@ export function CardFeedItem({
           </View>
         )}
 
+        {/* Episode tag badge (e.g. "S3E12") — opposite corner from the rank badge */}
+        {episodeTag ? (
+          <View style={styles.episodeTagBadge}>
+            <Text style={styles.episodeTagText}>{episodeTag}</Text>
+          </View>
+        ) : null}
+
         {/* "Already watched" indicator, e.g. for the franchise/collection row */}
         {watched && (
           <View
@@ -203,6 +213,20 @@ const styles = StyleSheet.create({
     fontFamily: Platform.OS === 'ios' ? 'ui-rounded' : undefined,
     letterSpacing: -2,
     lineHeight: 52,
+  },
+  episodeTagBadge: {
+    position: 'absolute',
+    top: Spacing.xs,
+    left: Spacing.xs,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.small,
+  },
+  episodeTagText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
   },
   metaContainer: {
     marginTop: Spacing.xs + 2,

@@ -17,7 +17,7 @@ import * as Haptics from 'expo-haptics';
 import { SymbolView } from 'expo-symbols';
 import { FontWeight, Radius, Spacing, backdropUrl, posterUrl } from '@/constants/tokens';
 import { StarRatingControl } from '@/components/StarRatingControl';
-import { logWatch, getLogEntriesForMovie, type LogEntry } from '@/db/logEntries';
+import { logWatch, getLogEntriesForMedia, type LogEntry } from '@/db/logEntries';
 import { getMovie, setRating } from '@/db/movies';
 import { isLiked, toggleLike } from '@/db/likes';
 
@@ -81,15 +81,15 @@ export function QuickLogSheet({
 }: QuickLogSheetProps) {
   const [rating, setRatingValue] = useState<number | null>(existingRating);
   const [review, setReview] = useState(existingReview ?? '');
-  const [liked, setLiked] = useState(() => isLiked(tmdbId));
-  const [entries, setEntries] = useState<LogEntry[]>(() => getLogEntriesForMovie(tmdbId));
+  const [liked, setLiked] = useState(() => isLiked(tmdbId, 'movie'));
+  const [entries, setEntries] = useState<LogEntry[]>(() => getLogEntriesForMedia(tmdbId, 'movie'));
   const [addingEntry, setAddingEntry] = useState(false);
   const [newNote, setNewNote] = useState('');
 
   const imageUri = backdropUrl(backdropPath, 'w780') ?? posterUrl(posterPath, 'w780');
 
   function handleFavoriteToggle() {
-    const next = toggleLike(tmdbId);
+    const next = toggleLike(tmdbId, 'movie');
     setLiked(next);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     onChange();
@@ -130,8 +130,8 @@ export function QuickLogSheet({
 
   function saveNewEntry() {
     const todayStr = new Date().toISOString().split('T')[0];
-    logWatch(tmdbId, todayStr, newNote.trim() || null);
-    setEntries(getLogEntriesForMovie(tmdbId));
+    logWatch(tmdbId, 'movie', todayStr, newNote.trim() || null);
+    setEntries(getLogEntriesForMedia(tmdbId, 'movie'));
     setNewNote('');
     setAddingEntry(false);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);

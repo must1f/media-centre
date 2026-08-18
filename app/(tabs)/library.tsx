@@ -23,10 +23,11 @@ import { sortMovies, primaryGenreName, SORT_OPTIONS, type SortOption } from '@/s
 
 // DB CRUD functions
 import { getAllCachedMovies, type Movie } from '@/db/movies';
+import { getAllCachedSeries, type Series } from '@/db/series';
 import { getAllLogEntries, type LogEntry } from '@/db/logEntries';
 import { getWatchlistIds } from '@/db/watchlist';
 
-type FilterCategory = 'all' | 'movies' | 'diary' | 'watchlist' | 'ratings';
+type FilterCategory = 'all' | 'movies' | 'series' | 'diary' | 'watchlist' | 'ratings';
 type DisplayMode = 'reels' | 'grid' | 'list';
 
 export default function VaultScreen() {
@@ -40,26 +41,40 @@ export default function VaultScreen() {
 
   // Data State
   const [movies, setMovies] = useState<Movie[]>([]);
+  const [series, setSeries] = useState<Series[]>([]);
   const [logEntries, setLogEntries] = useState<LogEntry[]>([]);
   const [watchlistIds, setWatchlistIds] = useState<number[]>([]);
+  const [watchlistSeriesIds, setWatchlistSeriesIds] = useState<number[]>([]);
 
   // Refresh data every time the screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       setMovies(getAllCachedMovies());
+      setSeries(getAllCachedSeries());
       setLogEntries(getAllLogEntries());
-      setWatchlistIds(getWatchlistIds());
+      setWatchlistIds(getWatchlistIds('movie'));
+      setWatchlistSeriesIds(getWatchlistIds('series'));
     }, [])
   );
 
   // Derived data sets
-  const watchedMovieIds = new Set(logEntries.map((l) => l.movie_id));
+  const watchedMovieIds = new Set(
+    logEntries.filter((l) => l.media_type === 'movie').map((l) => l.movie_id)
+  );
   const watchedMoviesBase = movies.filter((m) => watchedMovieIds.has(m.tmdb_id));
+
+  const watchedSeriesIds = new Set(
+    logEntries.filter((l) => l.media_type === 'series').map((l) => l.movie_id)
+  );
+  const watchedSeries = series.filter((s) => watchedSeriesIds.has(s.tmdb_id));
 
   const ratedMoviesBase = movies.filter((m) => m.my_rating !== null);
 
   const watchlistSet = new Set(watchlistIds);
   const watchlistMoviesBase = movies.filter((m) => watchlistSet.has(m.tmdb_id));
+
+  const watchlistSeriesSet = new Set(watchlistSeriesIds);
+  const watchlistSeries = series.filter((s) => watchlistSeriesSet.has(s.tmdb_id));
 
   // Apply the active sort (falling back to sensible defaults per section when none chosen)
   const watchedMovies = sortBy ? sortMovies(watchedMoviesBase, sortBy, logEntries) : watchedMoviesBase;
@@ -68,6 +83,12 @@ export default function VaultScreen() {
     : sortMovies(ratedMoviesBase, 'rating', logEntries);
   const watchlistMovies = sortBy ? sortMovies(watchlistMoviesBase, sortBy, logEntries) : watchlistMoviesBase;
   const sortedMovies = sortBy ? sortMovies(movies, sortBy, logEntries) : movies;
+
+  // Combined watchlist (movies + series) for the "Watchlist" reel/filter/grid/list.
+  const watchlistItems = [
+    ...watchlistMovies.map((m) => ({ ...m, mediaType: 'movie' as const })),
+    ...watchlistSeries.map((s) => ({ ...s, mediaType: 'series' as const })),
+  ];
 
   const diaryItemsBase = logEntries.map((log) => {
     const movie = movies.find((m) => m.tmdb_id === log.movie_id);
@@ -102,16 +123,20 @@ export default function VaultScreen() {
       })
     : diaryItemsBase;
 
-  const totalVaultCount = movies.length + watchlistMoviesBase.length;
+  const totalVaultCount = movies.length + watchlistMoviesBase.length + watchlistSeries.length + series.length;
 
   // The single data set currently on screen for grid/list mode, respecting both the active filter and sort.
   const listModeData: any[] =
     activeFilter === 'watchlist'
-      ? watchlistMovies
+      ? watchlistItems
       : activeFilter === 'ratings'
       ? ratedMovies
       : activeFilter === 'diary'
       ? diaryItems
+      : activeFilter === 'series'
+      ? watchedSeries.length > 0
+        ? watchedSeries
+        : series
       : watchedMovies.length > 0
       ? watchedMovies
       : sortedMovies;
@@ -120,9 +145,19 @@ export default function VaultScreen() {
     router.push(`/movie/${tmdbId}`);
   };
 
+  const navigateToItem = (item: any) => {
+    const mediaType = item.mediaType ?? (activeFilter === 'series' ? 'series' : 'movie');
+    if (mediaType === 'series') {
+      router.push(`/series/${item.tmdb_id}`);
+    } else {
+      navigateToDetail(item.tmdb_id ?? item.tmdbId);
+    }
+  };
+
   const filterChips: { id: FilterCategory; label: string; icon?: string }[] = [
     { id: 'all', label: 'All Saves' },
     { id: 'movies', label: 'Watched' },
+    { id: 'series', label: 'TV Shows' },
     { id: 'watchlist', label: 'Watchlist', icon: 'bookmark.fill' },
     { id: 'ratings', label: 'Ratings', icon: 'star.fill' },
     { id: 'diary', label: 'Diary', icon: 'calendar' },
@@ -379,8 +414,33 @@ export default function VaultScreen() {
             </View>
           )}
 
+          {/* Watched Series Reel */}
+          {watchedSeries.length > 0 && (
+            <View style={styles.reelSection}>
+              <RowHeader title="Series Watched" onSeeAll={() => setActiveFilter('series')} />
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{ paddingHorizontal: Spacing.md }}
+              >
+                {watchedSeries.map((show) => (
+                  <View key={show.tmdb_id} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
+                    <PosterGridCell
+                      tmdbId={show.tmdb_id}
+                      title={show.name}
+                      posterPath={show.poster_path}
+                      releaseYear={show.first_air_year}
+                      rating={show.my_rating}
+                      onPress={() => router.push(`/series/${show.tmdb_id}`)}
+                    />
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
           {/* Watchlist Reel */}
-          {watchlistMovies.length > 0 && (
+          {watchlistItems.length > 0 && (
             <View style={styles.reelSection}>
               <RowHeader title="Watchlist" onSeeAll={() => setActiveFilter('watchlist')} />
               <ScrollView
@@ -388,15 +448,15 @@ export default function VaultScreen() {
                 showsHorizontalScrollIndicator={false}
                 contentContainerStyle={{ paddingHorizontal: Spacing.md }}
               >
-                {watchlistMovies.map((movie) => (
-                  <View key={movie.tmdb_id} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
+                {watchlistItems.map((item) => (
+                  <View key={`${item.mediaType}-${item.tmdb_id}`} style={{ width: 130, marginRight: Spacing.xs + 2 }}>
                     <PosterGridCell
-                      tmdbId={movie.tmdb_id}
-                      title={movie.title}
-                      posterPath={movie.poster_path}
-                      releaseYear={movie.release_year}
-                      rating={movie.my_rating}
-                      onPress={() => navigateToDetail(movie.tmdb_id)}
+                      tmdbId={item.tmdb_id}
+                      title={(item as any).title ?? (item as any).name}
+                      posterPath={item.poster_path}
+                      releaseYear={(item as any).release_year ?? (item as any).first_air_year}
+                      rating={item.my_rating}
+                      onPress={() => navigateToItem(item)}
                     />
                   </View>
                 ))}
@@ -405,7 +465,7 @@ export default function VaultScreen() {
           )}
 
           {/* All Saved Titles Reel if no specific sub-filters populated */}
-          {movies.length > 0 && watchedMovies.length === 0 && watchlistMovies.length === 0 && ratedMovies.length === 0 && (
+          {movies.length > 0 && watchedMovies.length === 0 && watchlistItems.length === 0 && ratedMovies.length === 0 && (
             <View style={styles.reelSection}>
               <RowHeader title="Saved in Vault" onSeeAll={() => setDisplayMode('grid')} />
               <ScrollView
@@ -459,17 +519,21 @@ export default function VaultScreen() {
         <FlashList
           data={listModeData}
           numColumns={3}
-          keyExtractor={(item: any) => String(item.logId ?? item.tmdb_id ?? item.tmdbId)}
+          keyExtractor={(item: any) =>
+            item.logId != null
+              ? `log-${item.logId}`
+              : `${item.mediaType ?? (activeFilter === 'series' ? 'series' : 'movie')}-${item.tmdb_id ?? item.tmdbId}`
+          }
           contentContainerStyle={{ paddingHorizontal: Spacing.md, paddingTop: Spacing.xs, paddingBottom: 130 }}
           ItemSeparatorComponent={() => <View style={{ height: Spacing.xs }} />}
           renderItem={({ item }: { item: any }) => (
             <PosterGridCell
               tmdbId={item.tmdb_id ?? item.tmdbId}
-              title={item.title}
+              title={item.title ?? item.name}
               posterPath={item.poster_path ?? item.posterPath}
-              releaseYear={item.release_year ?? item.releaseYear}
+              releaseYear={item.release_year ?? item.releaseYear ?? item.first_air_year}
               rating={item.my_rating ?? item.rating}
-              onPress={() => navigateToDetail(item.tmdb_id ?? item.tmdbId)}
+              onPress={() => navigateToItem(item)}
               style={{ marginHorizontal: Spacing.xs / 2 }}
             />
           )}
@@ -485,16 +549,20 @@ export default function VaultScreen() {
           >
             <FlashList
               data={listModeData}
-              keyExtractor={(item: any) => String(item.logId ?? item.tmdb_id ?? item.tmdbId)}
+              keyExtractor={(item: any) =>
+                item.logId != null
+                  ? `log-${item.logId}`
+                  : `${item.mediaType ?? (activeFilter === 'series' ? 'series' : 'movie')}-${item.tmdb_id ?? item.tmdbId}`
+              }
               contentContainerStyle={{ paddingBottom: 130 }}
               renderItem={({ item, index }: { item: any; index: number }) => (
                 <CompactLibraryRow
-                  title={item.title}
+                  title={item.title ?? item.name}
                   posterPath={item.poster_path ?? item.posterPath}
-                  releaseYear={item.release_year ?? item.releaseYear}
+                  releaseYear={item.release_year ?? item.releaseYear ?? item.first_air_year}
                   rating={item.my_rating ?? item.rating}
                   watchedDate={item.watchedDate}
-                  onPress={() => navigateToDetail(item.tmdb_id ?? item.tmdbId)}
+                  onPress={() => navigateToItem(item)}
                   isLast={index === listModeData.length - 1}
                 />
               )}
