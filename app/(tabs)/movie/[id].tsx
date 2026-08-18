@@ -472,7 +472,7 @@ export default function MovieDetailScreen() {
               </View>
             )}
 
-            <View style={{ height: 60 }} />
+            <View style={{ height: 120 }} />
           </ScrollView>
         </PosterBackdrop>
       ) : null}

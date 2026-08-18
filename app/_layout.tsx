@@ -21,13 +21,6 @@ function RootLayoutNav() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="movie/[id]"
-          options={{
-            headerShown: false,
-            presentation: 'card',
-          }}
-        />
       </Stack>
     </>
   );
