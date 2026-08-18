@@ -124,13 +124,16 @@ export default function SeriesDetailScreen() {
     } else {
       // Remove the diary entry this episode's watch created. There's no
       // per-episode log id threaded through state, so fall back to deleting
-      // the most recent entry dated today for this series (entries are
-      // ordered watched_date DESC, created_at DESC).
-      const todaysEntry = getLogEntriesForMedia(tmdbId, 'series').find(
-        (entry) => entry.watched_date === today,
+      // the most recent entry dated on the day this episode was originally
+      // marked watched (not "today" — the mark and the unmark can happen on
+      // different days, and watched_at is still the pre-toggle value here
+      // since setEpisodeWatched(false) only clears it after this read).
+      const markedDate = episode.watched_at?.slice(0, 10) ?? today;
+      const markedEntry = getLogEntriesForMedia(tmdbId, 'series').find(
+        (entry) => entry.watched_date === markedDate,
       );
-      if (todaysEntry) {
-        deleteLogEntry(todaysEntry.id);
+      if (markedEntry) {
+        deleteLogEntry(markedEntry.id);
       }
     }
     setLogEntries(getLogEntriesForMedia(tmdbId, 'series'));
